@@ -5,6 +5,13 @@
 #include <string.h>
 #include <stdarg.h>
 
+int lineno = 1;
+int yylex();
+void yyerror(const char *msg)
+{
+	fprintf(stderr, "I'm confused while reading line %d: %s\n", lineno, msg);
+}
+
 #define YYSTYPE node_star
 
 #define PP_NARG(...) \
@@ -33,8 +40,6 @@ typedef struct node{
 	int soncnt, lineno;
 	struct node** son;
 } node;
-
-int lineno = 1;
 
 typedef struct node* node_star;
 
@@ -79,7 +84,7 @@ void travel(node_star rt, int lvl)
 
 %}
 
-%token INT OCTINT HEXINT FLOAT ID SEMI COMMA ASSIGNOP RELOP PLUS MINUS STAR DIV AND OR DOT NOT TYPE LP RP LB RB LC RC STRUCT RETURN IF ELSE WHILE
+%token INT FLOAT ID SEMI COMMA ASSIGNOP RELOP PLUS MINUS STAR DIV AND OR DOT NOT TYPE LP RP LB RB LC RC STRUCT RETURN IF ELSE WHILE CBEGIN CEND
 %nonassoc LOWER_THAN_ELSE
 %nonassoc ELSE
 %right ASSIGNOP
@@ -123,6 +128,7 @@ FunDec : ID LP VarList RP {$$ = newnode("FunDec", $1, $2, $3, $4);}
 	   ;
 VarList : ParamDec COMMA VarList {$$ = newnode("VarList", $1, $2, $3);}
         | ParamDec {$$ = newnode("VarList", $1);}
+		| ParamDec error {yyerror("`,' expected");yyerrok;}
 		;
 ParamDec : Specifier VarDec {$$ = newnode("ParamDec", $1, $2);}
          ;
@@ -133,10 +139,15 @@ StmtList : Stmt StmtList {$$ = newnode("StmtList", $1, $2);}
          ;
 Stmt : Exp SEMI {$$ = newnode("Stmt", $1, $2);}
      | CompSt {$$ = newnode("Stmt", $1);}
-	 | RETURN Exp Stmt {$$ = newnode("Stmt", $1, $2, $3);}
+	 | RETURN Exp SEMI {$$ = newnode("Stmt", $1, $2, $3);}
 	 | IF LP Exp RP Stmt %prec LOWER_THAN_ELSE {$$ = newnode("Stmt", $1, $2, $3, $4, $5);}
 	 | IF LP Exp RP Stmt ELSE Stmt {$$ = newnode("Stmt", $1, $2, $3, $4, $5, $6, $7);}
 	 | WHILE LP Exp RP Stmt {$$ = newnode("Stmt", $1, $2, $3, $4, $5);}
+	 | Exp error {yyerror("Meow? ``;'' is expected");}
+	 | IF error {yyerror("Meow? ``('' is required");}
+	 | IF LP error {yyerror("Meow! Wtf is this? I can't read this expression.");}
+	 | WHILE error {yyerror("Meow? ``('' is required");}
+	 | WHILE LP error {yyerror("Meow! Wtf is this? I can't read this expression.");}
 	 ;
 DefList : Def DefList {$$ = newnode("DefList", $1, $2);}
         | /* empty */ {$$ = NULL;}
@@ -166,13 +177,14 @@ Exp : Exp ASSIGNOP Exp {$$ = newnode("Exp", $1, $2, $3);}
 	| Exp DOT ID {$$ = newnode("Exp", $1, $2, $3);}
 	| ID {$$ = newnode("Exp", $1);}
 	| INT {$$ = newnode("Exp", $1);}
-	| OCTINT {$$ = newnode("Exp", $1);}
-	| HEXINT {$$ = newnode("Exp", $1);}
 	| FLOAT {$$ = newnode("Exp", $1);}
-	| error ';' {yyerror("Error when parsing Exp on line %d\n", lineno);yyerrok;}
+	| Exp LB error {yyerror("Meow? Unexpected token: legal expression expected");}
+	| Exp LP error {yyerror("Meow? Unexpected token: legal expression list expected");}
+	| error {yyerror("Meow? Unexpected token");}
 	;
 Args : Exp COMMA Args {$$ = newnode("Args", $1, $2, $3);}
      | Exp {$$ = newnode("Args", $1);}
+     | Exp error {yyerror("Meow? Illegal argument list: ``,'' expected");}
 	 ;
 %%
 #include "lex.yy.c"
