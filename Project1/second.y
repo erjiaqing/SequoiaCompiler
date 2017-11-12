@@ -6,13 +6,18 @@
 #include <stdarg.h>
 
 int lineno = 1;
+int charno = 1;
+int legal = 1;
 int yylex();
 void yyerror(const char *msg)
 {
-	fprintf(stderr, "I'm confused while reading line %d: %s\n", lineno, msg);
+    legal = 0;
+	fprintf(stderr, "line %d: %s\n", lineno, msg);
 }
 
 #define YYSTYPE node_star
+
+/* 下面这一段是用来统计可变参数的个数的，来源是stackoverflow */
 
 #define PP_NARG(...) \
          PP_NARG_(__VA_ARGS__,PP_RSEQ_N())
@@ -36,22 +41,33 @@ void yyerror(const char *msg)
          9,8,7,6,5,4,3,2,1,0
 
 typedef struct node{
-	char *id;
-	int soncnt, lineno;
+	char *label;
+	int soncnt;
+	int start_lineno, start_pos, end_lineno, end_pos;
 	struct node** son;
 } node;
 
 typedef struct node* node_star;
 
-node_star _newnode(char *name, int n, ...)
+node_star _newnode(char *name, int start_lineno, int start_pos, int end_lineno, int end_pos, int n, ...)
 {
-	node* ret = (node*) malloc(sizeof(node));
-	ret->id = (char*) malloc((strlen(name) + 5) * (sizeof(char)));
-	strcpy(ret->id, name);
+	node_star ret = (node_star) malloc(sizeof(node));
+	ret->label = (char*) malloc((strlen(name) + 5) * (sizeof(char)));
+	strcpy(ret->label, name);
+	//fprintf(stderr, "Newnode: %s\n", ret->label);
 	va_list vl;
 	va_start(vl, n);
 	ret->soncnt = n;
-	ret->lineno = lineno;
+	if (start_lineno)
+	{
+		ret->start_lineno = start_lineno;
+		ret->start_pos = start_pos;
+		ret->end_lineno = end_lineno;
+		ret->end_pos = end_pos;
+	} else {
+		ret->start_lineno = ret->start_pos = 0x7fffffff;
+		ret->end_lineno = ret->end_pos = 0;
+	}
 	int soncnt = n;
 	if (soncnt)
 	{
@@ -60,8 +76,16 @@ node_star _newnode(char *name, int n, ...)
 		{
 			ret->son[i] = va_arg(vl, node*);
 			if (ret->son[i])
-				if (ret->son[i]->lineno < ret->lineno)
-					ret->lineno = ret->son[i]->lineno;
+			{
+				if (ret->son[i]->start_lineno == ret->start_lineno && ret->son[i]->start_pos < ret->start_pos)
+					ret->start_pos = ret->son[i]->start_pos;
+				else if (ret->son[i]->start_lineno < ret->start_lineno)
+					ret->start_pos = ret->son[i]->start_pos, ret->start_lineno = ret->son[i]->start_lineno;
+				if (ret->son[i]->end_lineno == ret->end_lineno && ret->son[i]->end_pos > ret->end_pos)
+					ret->end_pos = ret->son[i]->end_pos;
+				else if (ret->son[i]->end_lineno > ret->end_lineno)
+					ret->end_pos = ret->son[i]->end_pos, ret->end_lineno = ret->son[i]->end_lineno;
+			}
 		}
 	} else {
 	}
@@ -69,14 +93,22 @@ node_star _newnode(char *name, int n, ...)
 	return ret;
 }
 
-#define nnewnode(_000) _newnode(_000, 0)
-#define newnode(_000, ...) _newnode(_000, PP_NARG(__VA_ARGS__), ##__VA_ARGS__)
+// 重写新建节点的伪函数，方便自己调用
+
+#define nnewnode(_000, a, b, c, d) _newnode(_000, a, b, c, d, 0)
+#define newnode(_000, ...) _newnode(_000, 0, 0, 0, 0, PP_NARG(__VA_ARGS__), ##__VA_ARGS__)
+
+// 遍历，内存漏就漏吧= =
 
 void travel(node_star rt, int lvl)
 {
-	printf("%3d)", rt->lineno);
+    if (!legal) {
+        fprintf(stderr, "Error detected.\n");
+        exit(1);
+    }
+	printf("[%3d:%3d]->[%3d:%3d]", rt->start_lineno, rt->start_pos, rt->end_lineno, rt->end_pos - 1);
 	for (int i = 0; i < lvl; i++) printf("  ");
-	printf("%s\n", rt->id);
+	printf("%s\n", rt->label);
 	for (int i = 0; i < rt->soncnt; i++)
 		if (rt->son[i])
 			travel(rt->son[i], lvl + 1);
@@ -84,7 +116,11 @@ void travel(node_star rt, int lvl)
 
 %}
 
+// 定义一堆关键字和它们的优先级
+
 %token INT FLOAT ID SEMI COMMA ASSIGNOP RELOP PLUS MINUS STAR DIV AND OR DOT NOT TYPE LP RP LB RB LC RC STRUCT RETURN IF ELSE WHILE CBEGIN CEND
+
+// 这样可以避免else的歧义
 %nonassoc LOWER_THAN_ELSE
 %nonassoc ELSE
 %right ASSIGNOP
@@ -157,8 +193,8 @@ Def : Specifier DecList SEMI {$$ = newnode("Def", $1, $2, $3);}
 DecList : Dec {$$ = newnode("DecList", $1);}
         | Dec COMMA DecList {$$ = newnode("DecList", $1, $2, $3);}
 		;
-Dec : VarDec {$$ = newnode("Dec", $1);}
-    | VarDec ASSIGNOP Exp {$$ = newnode("VarDec", $1, $2, $3);}
+Dec : VarDec ASSIGNOP Exp {$$ = newnode("VarDec", $1, $2, $3);}
+    | VarDec {$$ = newnode("Dec", $1);}
 	;
 Exp : Exp ASSIGNOP Exp {$$ = newnode("Exp", $1, $2, $3);}
     | Exp AND Exp {$$ = newnode("Exp", $1, $2, $3);}
