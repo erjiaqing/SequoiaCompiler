@@ -1,0 +1,831 @@
+#LyX 2.2 created this file. For more info see http://www.lyx.org/
+\lyxformat 508
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass article
+\begin_preamble
+\usepackage[linguistics]{forest}
+\usepackage[all]{xy}
+\usepackage{minted}
+\usepackage{indentfirst}
+\setlength{\parindent}{2em}
+\XeTeXlinebreaklocale "zh"
+\XeTeXlinebreakskip = 0pt plus 1pt minus 0.1pt
+\setminted{
+baselinestretch=1.2,
+fontsize=\footnotesize,
+linenos}
+\end_preamble
+\use_default_options true
+\maintain_unincluded_children false
+\language japanese-cjk
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman "default" "Source Han Serif SC"
+\font_sans "default" "Source Han Sans SC"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts true
+\font_sc false
+\font_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\graphics default
+\default_output_format pdf4
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\spacing single
+\use_hyperref true
+\pdf_bookmarks true
+\pdf_bookmarksnumbered false
+\pdf_bookmarksopen false
+\pdf_bookmarksopenlevel 1
+\pdf_breaklinks false
+\pdf_pdfborder true
+\pdf_colorlinks true
+\pdf_backref false
+\pdf_pdfusetitle true
+\papersize default
+\use_geometry true
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine basic
+\cite_engine_type default
+\biblio_style plain
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 1
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\leftmargin 2.5cm
+\topmargin 2.5cm
+\rightmargin 2.5cm
+\bottommargin 2.5cm
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language swedish
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+编译原理实验一：词法分析与语法分析
+\end_layout
+
+\begin_layout Author
+郭松 2015301500205
+\end_layout
+
+\begin_layout Section
+系统环境
+\end_layout
+
+\begin_layout Verbatim
+
+Ubuntu 17.10 (Kernel 4.13.0-16) GCC 7.2.0 Flex 2.6.1 Bison (GNU Bison 3.0.4) 
+\end_layout
+
+\begin_layout Section
+功能简介
+\end_layout
+
+\begin_layout Standard
+尽力地进行语法分析。对于有一定错误的程序，也尝试生成抽象语法树。基本完成了必做样例和选做样例的全部内容。
+\end_layout
+
+\begin_layout Standard
+构建抽象语法树，并给出每一个节点对应的源代码(的范围)。
+\end_layout
+
+\begin_layout Standard
+在附件中准备了很多.c文件，是我自己用来测试功能的，涵盖了大部分语法点。
+\end_layout
+
+\begin_layout Standard
+另外，Makefile文件是非常简单的Make脚本，直接调用make即可编译。
+\end_layout
+
+\begin_layout Standard
+当程序遇到了词法错误，会产生类似于下面的输出：
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{minted}{text}
+\end_layout
+
+\begin_layout Plain Layout
+
+line 4: <<Error Type A.2>> Nya! I cannot recognize ``~'', wtf!
+\end_layout
+
+\begin_layout Plain Layout
+
+line 5: <<Error Type A.1>> Nya! I can recognize ``1e'', but why?
+\end_layout
+
+\begin_layout Plain Layout
+
+line 6: <<Error Type A.0>> Nya? ``0x1G'' might be a wrong hex integer.
+\end_layout
+
+\begin_layout Plain Layout
+
+line 7: <<Error Type A.0>> Nya? ``09'' might be a wrong oct integer.
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{minted}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+当程序遇到了语法错误，会产生类似于下面的输出：
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{minted}{text}
+\end_layout
+
+\begin_layout Plain Layout
+
+line 8: syntax error
+\end_layout
+
+\begin_layout Plain Layout
+
+line 8: <<Error Type B.1>> Meow! Valid argument expression required.
+\end_layout
+
+\begin_layout Plain Layout
+
+line 9: syntax error
+\end_layout
+
+\begin_layout Plain Layout
+
+line 9: <<Error Type B.1>> Meow! Valid expression required.
+\end_layout
+
+\begin_layout Plain Layout
+
+line 10: syntax error
+\end_layout
+
+\begin_layout Plain Layout
+
+line 10: <<Error Type B.0>> Meow? ``;'' is expected
+\end_layout
+
+\begin_layout Plain Layout
+
+line 12: <<Error Type B.1>> Meow! Valid StmtList expected.
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{minted}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+和要求的输出格式有一些不同，我的输出格式为：
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{minted}{text}
+\end_layout
+
+\begin_layout Plain Layout
+
+[  1:  1]->[ 21:  1]Program 
+\end_layout
+
+\begin_layout Plain Layout
+
+[  1:  1]->[ 21:  1]  ExtDefList 
+\end_layout
+
+\begin_layout Plain Layout
+
+[  1:  1]->[  4:  1]    ExtDef 
+\end_layout
+
+\begin_layout Plain Layout
+
+[  1:  1]->[  1:  5]      Specifier 
+\end_layout
+
+\begin_layout Plain Layout
+
+[  1:  1]->[  1:  5]        TYPE: float 
+\end_layout
+
+\begin_layout Plain Layout
+
+[  1:  7]->[  1: 20]      FunDec 
+\end_layout
+
+\begin_layout Plain Layout
+
+[  1:  7]->[  1: 11]        ID: sqr_f 
+\end_layout
+
+\begin_layout Plain Layout
+
+[  1: 12]->[  1: 12]        ( 
+\end_layout
+
+\begin_layout Plain Layout
+
+[  1: 13]->[  1: 19]        VarList 
+\end_layout
+
+\begin_layout Plain Layout
+
+[  1: 13]->[  1: 19]          ParamDec 
+\end_layout
+
+\begin_layout Plain Layout
+
+[  1: 13]->[  1: 17]            Specifier
+\end_layout
+
+\begin_layout Plain Layout
+
+(...)
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{minted}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+每一行的开头表示了语法树节点对应的源代码中的位置。同时对于部分终结符也只显示其文本（如各种括号，一些运算符等）
+\end_layout
+
+\begin_layout Section
+功能测试
+\end_layout
+
+\begin_layout Standard
+调用make编译完成之后，会产生一个叫”ejq_cc”的程序，即最终的可执行文件。
+\end_layout
+
+\begin_layout Standard
+我在附件的test文件夹中准备了诸多用于测试的样例。
+\end_layout
+
+\begin_layout Standard
+ac.c是一个简单的程序，包含了基本的语法元素
+\end_layout
+
+\begin_layout Standard
+ac_numbers.c是一个仅包含数值字面量的程序，展示了对于数字的词法分析
+\end_layout
+
+\begin_layout Standard
+normal.c和dinic.c是两个由实际环境下的程序修改得到的程序，展示了在一般情况下的表现基本覆盖了所有语言点。
+\end_layout
+
+\begin_layout Standard
+error*.c是一些简短的，包含了常见错误的C语言程序。
+\end_layout
+
+\begin_layout Section
+词法分析
+\end_layout
+
+\begin_layout Subsection
+十进制整数
+\end_layout
+
+\begin_layout Standard
+十进制整数不含有前导零，即如果这个数非零，那么它首位不为0,否则其为0,根据这个定义，可以写出：
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{minted}{perl}
+\end_layout
+
+\begin_layout Plain Layout
+
+([1-9][0-9]*)|0
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{minted}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+其前半部分表示正数，后半部分表示0,对于负数的表示，我们将其表示为符号后跟一个正数，这也是大部分C编译器的实现。
+\end_layout
+
+\begin_layout Subsection
+八进制整数
+\end_layout
+
+\begin_layout Standard
+八进制整数以0开头，不包含有大于7的数码，可以有前导零，因而可以写为
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{minted}{perl}
+\end_layout
+
+\begin_layout Plain Layout
+
+OCTINT 0[0-7]+
+\end_layout
+
+\begin_layout Plain Layout
+
+ERROCT 0[0-9]+ 
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{minted}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+这里，Erroct表示了猜测为错误的八进制整数的情况。
+\end_layout
+
+\begin_layout Subsection
+十六进制整数
+\end_layout
+
+\begin_layout Standard
+十六进制整数以0x开头，包含0-9和a-f，不区分大小写，因而可以写为
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{minted}{perl}
+\end_layout
+
+\begin_layout Plain Layout
+
+HEXINT 0[xX][0-9a-fA-F]+
+\end_layout
+
+\begin_layout Plain Layout
+
+ERRHEX 0[xX][0-9a-zA-Z_]+
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{minted}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+这里Errhex表示了猜测为错误的十六进制整数的情况。
+\end_layout
+
+\begin_layout Subsection
+十进制浮点数
+\end_layout
+
+\begin_layout Standard
+十进制浮点数有两种表示方法，其一为普通的表示的方法，其二为科学计数法。对于普通的表示方法，小数点前后至少一部分不为空，则可以分情况考虑为
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{minted}{perl}
+\end_layout
+
+\begin_layout Plain Layout
+
+{INT}.[0-9]* | .[0-9]+
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{minted}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+对于第二种表示方法，可以认为其是简单地在后加上了指数部分，那么指数部分可以表示为
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{minted}{perl}
+\end_layout
+
+\begin_layout Plain Layout
+
+[eE][+-]?{INT}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{minted}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+同时也要注意到前半部分也可以是一个整数。因此综合上述两种情况可以表示为：
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{minted}{perl}
+\end_layout
+
+\begin_layout Plain Layout
+
+(({INT}(
+\backslash
+.{DIGIT}*)?|
+\backslash
+.{DIGIT}+)([eE][+-]?{DIGIT}+)|({INT}?
+\backslash
+.{DIGIT}+)|({INT}
+\backslash
+.{DIGIT}*))
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{minted}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+行末注释的表示
+\end_layout
+
+\begin_layout Standard
+行末注释可以表示为
+\begin_inset Quotes srd
+\end_inset
+
+//
+\begin_inset Quotes srd
+\end_inset
+
+.*
+\begin_inset Quotes srd
+\end_inset
+
+
+\backslash
+n
+\begin_inset Quotes srd
+\end_inset
+
+，Flex使用的正则表达式的
+\begin_inset Quotes srd
+\end_inset
+
+.
+\begin_inset Quotes srd
+\end_inset
+
+不包含换行符，十分方便。
+\end_layout
+
+\begin_layout Subsection
+块注释的表示
+\end_layout
+
+\begin_layout Standard
+因为注释不组成任何一个语法符号，所以考虑使用词法分析完成块注释的隔离。Flex提供了“状态”这一概念，可以给自动机加入指定的状态，因此，在读入
+\begin_inset Quotes srd
+\end_inset
+
+/*
+\begin_inset Quotes srd
+\end_inset
+
+之后，我们进入comment状态，直到读到第一个
+\begin_inset Quotes srd
+\end_inset
+
+*/
+\begin_inset Quotes srd
+\end_inset
+
+为止，返回INITAL状态。这样的处理方式天然解决了嵌套注释的问题。
+\end_layout
+
+\begin_layout Standard
+对于其余的正则表达式，十分简单，不再赘述。
+\end_layout
+
+\begin_layout Subsection
+错误处理
+\end_layout
+
+\begin_layout Standard
+按照词法定义，不包含在词法定义中的单词都被认为是错误的单词，在正则表达式中用
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{minted}{c}
+\end_layout
+
+\begin_layout Plain Layout
+
+ERRWORD ([a-zA-Z0-9_]+)
+\end_layout
+
+\begin_layout Plain Layout
+
+%%
+\end_layout
+
+\begin_layout Plain Layout
+
+{ERRWORD} {
+\end_layout
+
+\begin_layout Plain Layout
+
+    char buf[1024];
+\end_layout
+
+\begin_layout Plain Layout
+
+    sprintf(buf, "<<Error Type A.1>> Nya! I can recognize ``%s'', but why?",
+ yytext);
+\end_layout
+
+\begin_layout Plain Layout
+
+    yyerror(buf);
+\end_layout
+
+\begin_layout Plain Layout
+
+    sprintf(buf, "ERRWORD: %s", yytext);
+\end_layout
+
+\begin_layout Plain Layout
+
+    yylval = nnewnode(buf, lineno, charno, lineno, charno + strlen(yytext));
+\end_layout
+
+\begin_layout Plain Layout
+
+    charno += strlen(yytext);
+\end_layout
+
+\begin_layout Plain Layout
+
+    return ID;
+\end_layout
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{minted}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+来表示。因为yyerror的签名不能格式化，所以需要用sprintf来格式化错误信息。在这一种情况下，我将其认定为一个ID
+\end_layout
+
+\begin_layout Section
+文法分析
+\end_layout
+
+\begin_layout Standard
+对于基本的文法分析，照着要求的附件翻译一下即可。对于错误处理，也只需稍加修改，在可能的地方加上error标记，然后处理即可，这里只介绍构建语法树的方法。
+\end_layout
+
+\begin_layout Standard
+定义语法树结构体：
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{minted}{c}
+\end_layout
+
+\begin_layout Plain Layout
+
+typedef struct node{
+\end_layout
+
+\begin_layout Plain Layout
+
+    char *desc;
+\end_layout
+
+\begin_layout Plain Layout
+
+    int soncnt;
+\end_layout
+
+\begin_layout Plain Layout
+
+    int start_lineno, start_pos, end_lineno, end_pos;
+\end_layout
+
+\begin_layout Plain Layout
+
+    struct node** son;
+\end_layout
+
+\begin_layout Plain Layout
+
+}node;
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{minted}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+desc起到了描述的功能，在日后进行修改的时候，如要添加访问标志符表等需求，只需稍加修改如添加item项，即可实现。 start_lineno、start_po
+s、end_lineno和end_pos是为了描述语法树节点对应的源代码的位置。
+\end_layout
+
+\end_body
+\end_document

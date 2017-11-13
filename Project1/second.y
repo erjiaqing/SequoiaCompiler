@@ -103,7 +103,6 @@ node_star _newnode(char *name, int start_lineno, int start_pos, int end_lineno, 
 void travel(node_star rt, int lvl)
 {
     if (!legal) {
-        fprintf(stderr, "Error detected.\n");
         exit(1);
     }
 	printf("[%3d:%3d]->[%3d:%3d]", rt->start_lineno, rt->start_pos, rt->end_lineno, rt->end_pos - 1);
@@ -149,6 +148,7 @@ Specifier : TYPE {$$ = newnode("Specifier", $1);}
           | StructSpecifier {$$ = newnode("StructSpecifier", $1);}
 		  ;
 StructSpecifier : STRUCT OptTag LC DefList RC {$$ = newnode("StructSpecifier", $1, $2, $3, $4, $5);}
+				| STRUCT OptTag LC error RC {yyerror("<<Error Type B.1>> Meow. Valid DefList expected.");}
                 | STRUCT Tag {$$ = newnode("StructSpecifier", $1, $2);}
 				;
 OptTag : ID {$$ = newnode("OptTag", $1);}
@@ -158,13 +158,15 @@ Tag : ID {$$ = newnode("Tag", $1);}
     ;
 VarDec : ID {$$ = newnode("VarDec", $1);}
        | VarDec LB INT RB {$$ = newnode("VarDec", $1, $2, $3, $4);}
+	   | VarDec LB error RB {yyerror("<<Error Type B.1>> Meow. INT Expected.");}
 	   ;
 FunDec : ID LP VarList RP {$$ = newnode("FunDec", $1, $2, $3, $4);}
        | ID LP RP {$$ = newnode("FunDec", $1, $2, $3);}
+       | ID LP error RP {yyerror("<<Error Type B.1>> Meow! VarList Expected.");}
 	   ;
 VarList : ParamDec COMMA VarList {$$ = newnode("VarList", $1, $2, $3);}
         | ParamDec {$$ = newnode("VarList", $1);}
-		| ParamDec error {yyerror("`,' expected");yyerrok;}
+		| ParamDec error {yyerror("<<Error Type B.0>> `,' expected");yyerrok;}
 		;
 ParamDec : Specifier VarDec {$$ = newnode("ParamDec", $1, $2);}
          ;
@@ -178,12 +180,12 @@ Stmt : Exp SEMI {$$ = newnode("Stmt", $1, $2);}
 	 | RETURN Exp SEMI {$$ = newnode("Stmt", $1, $2, $3);}
 	 | IF LP Exp RP Stmt %prec LOWER_THAN_ELSE {$$ = newnode("Stmt", $1, $2, $3, $4, $5);}
 	 | IF LP Exp RP Stmt ELSE Stmt {$$ = newnode("Stmt", $1, $2, $3, $4, $5, $6, $7);}
+	 | IF LP error RP {yyerror("<<Error Type B.1>> Meow! Valid expression required.");}
 	 | WHILE LP Exp RP Stmt {$$ = newnode("Stmt", $1, $2, $3, $4, $5);}
-	 | Exp error {yyerror("Meow? ``;'' is expected");}
-	 | IF error {yyerror("Meow? ``('' is required");}
-	 | IF LP error {yyerror("Meow! Wtf is this? I can't read this expression.");}
-	 | WHILE error {yyerror("Meow? ``('' is required");}
-	 | WHILE LP error {yyerror("Meow! Wtf is this? I can't read this expression.");}
+	 | Exp error {yyerror("<<Error Type B.0>> Meow? ``;'' is expected");}
+	 | IF error {yyerror("<<Error Type B.0>> Meow? ``('' is required");}
+	 | WHILE error {yyerror("<<Error Type B.0>> Meow? ``('' is required");}
+	 | WHILE LP error RP {yyerror("<<Error Type B.1>> Meow! Wtf is this? I can't read this expression.");}
 	 ;
 DefList : Def DefList {$$ = newnode("DefList", $1, $2);}
         | /* empty */ {$$ = NULL;}
@@ -208,19 +210,19 @@ Exp : Exp ASSIGNOP Exp {$$ = newnode("Exp", $1, $2, $3);}
 	| MINUS Exp %prec STAR {$$ = newnode("Exp", $1, $2);}
 	| NOT Exp {$$ = newnode("Exp", $1, $2);}
 	| ID LP Args RP {$$ = newnode("Exp", $1, $2, $3, $4);}
+	| ID LP error RP {yyerror("<<Error Type B.1>> Meow! Valid argument expression required.");}
 	| ID LP RP {$$ = newnode("Exp", $1, $2, $3);}
 	| Exp LB Exp RB {$$ = newnode("Exp", $1, $2, $3, $4);}
+	| Exp LB error RB {yyerror("<<Error Type B.1>> Meow! Valid expression required.");}
 	| Exp DOT ID {$$ = newnode("Exp", $1, $2, $3);}
 	| ID {$$ = newnode("Exp", $1);}
 	| INT {$$ = newnode("Exp", $1);}
 	| FLOAT {$$ = newnode("Exp", $1);}
-	| Exp LB error {yyerror("Meow? Unexpected token: legal expression expected");}
-	| Exp LP error {yyerror("Meow? Unexpected token: legal expression list expected");}
-	| error {yyerror("Meow? Unexpected token");}
+/*	| Exp LB error {yyerror("<<Error Type B.1>> Meow? Unexpected token: legal expression expected");}
+	| Exp LP error {yyerror("<<Error Type B.1>> Meow? Unexpected token: legal expression list expected");} */
 	;
 Args : Exp COMMA Args {$$ = newnode("Args", $1, $2, $3);}
      | Exp {$$ = newnode("Args", $1);}
-     | Exp error {yyerror("Meow? Illegal argument list: ``,'' expected");}
 	 ;
 %%
 #include "lex.yy.c"
