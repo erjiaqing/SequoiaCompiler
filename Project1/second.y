@@ -5,15 +5,57 @@
 #include <string.h>
 #include <stdarg.h>
 
-int lineno = 1;
-int charno = 1;
+#include "extend.h"
+#include "node.c"
+
+extern FILE* yyin;
+FILE* line_reader;
+
+char line_buffer[65536];
+int lineno = 0, charno = 1;
 int legal = 1;
+
 int yylex();
 void yyerror(const char *msg)
 {
     legal = 0;
 	fprintf(stderr, "line %d: %s\n", lineno, msg);
 }
+
+void move_to_next_line()
+{
+	lineno++;charno = 1;
+	fgets(line_buffer, 65535, line_reader);
+}
+
+void _raise_line_error(int from, int to, int level, char *note)
+{
+#ifdef _DEBUG
+// 输出一些好看一点的错误信息，如果想看效果的话，make debug即可
+	for (int i = 0; line_buffer[i]; i++)
+	{
+		if (i + 1 == from) fprintf(stderr, "%s", write_color(level));
+		if (i + 1 == to) fprintf(stderr, "\033[0m");
+		fprintf(stderr, "%c", line_buffer[i]);
+	}
+	for (int i = 0; i + 1 < to; i++)
+	{
+		if (i + 1 == from) fprintf(stderr, "%s^", write_color(level));
+		else if (i + 1 > from) fprintf(stderr, "~");
+		else fprintf(stderr, line_buffer[i] == '\t' ? "\t" : " ");
+	}
+	fprintf(stderr, "\033[0m\n");
+	if (note)
+	{
+		for (int i = 0; i + 1 <= from; i++)
+			fprintf(stderr, line_buffer[i] == '\t' ? "\t" : " ");
+		fprintf(stderr, "%s\n", note);
+	}
+#endif
+}
+
+#define raise_line_error_4(a, b, c, d) _raise_line_error(a, b, c, d)
+#define raise_line_error(a, b, c) _raise_line_error(a, b, c, NULL)
 
 #define YYSTYPE node_star
 
@@ -39,59 +81,6 @@ void yyerror(const char *msg)
          29,28,27,26,25,24,23,22,21,20, \
          19,18,17,16,15,14,13,12,11,10, \
          9,8,7,6,5,4,3,2,1,0
-
-typedef struct node{
-	char *label;
-	int soncnt;
-	int start_lineno, start_pos, end_lineno, end_pos;
-	struct node** son;
-} node;
-
-typedef struct node* node_star;
-
-node_star _newnode(char *name, int start_lineno, int start_pos, int end_lineno, int end_pos, int n, ...)
-{
-	node_star ret = (node_star) malloc(sizeof(node));
-	ret->label = (char*) malloc((strlen(name) + 5) * (sizeof(char)));
-	strcpy(ret->label, name);
-	//fprintf(stderr, "Newnode: %s\n", ret->label);
-	va_list vl;
-	va_start(vl, n);
-	ret->soncnt = n;
-	if (start_lineno)
-	{
-		ret->start_lineno = start_lineno;
-		ret->start_pos = start_pos;
-		ret->end_lineno = end_lineno;
-		ret->end_pos = end_pos;
-	} else {
-		ret->start_lineno = ret->start_pos = 0x7fffffff;
-		ret->end_lineno = ret->end_pos = 0;
-	}
-	int soncnt = n;
-	if (soncnt)
-	{
-		ret->son = (node**) malloc((sizeof(node*)) * soncnt);
-		for (int i = 0; i < n; i++)
-		{
-			ret->son[i] = va_arg(vl, node*);
-			if (ret->son[i])
-			{
-				if (ret->son[i]->start_lineno == ret->start_lineno && ret->son[i]->start_pos < ret->start_pos)
-					ret->start_pos = ret->son[i]->start_pos;
-				else if (ret->son[i]->start_lineno < ret->start_lineno)
-					ret->start_pos = ret->son[i]->start_pos, ret->start_lineno = ret->son[i]->start_lineno;
-				if (ret->son[i]->end_lineno == ret->end_lineno && ret->son[i]->end_pos > ret->end_pos)
-					ret->end_pos = ret->son[i]->end_pos;
-				else if (ret->son[i]->end_lineno > ret->end_lineno)
-					ret->end_pos = ret->son[i]->end_pos, ret->end_lineno = ret->son[i]->end_lineno;
-			}
-		}
-	} else {
-	}
-	va_end(vl);
-	return ret;
-}
 
 // 重写新建节点的伪函数，方便自己调用
 
@@ -158,11 +147,17 @@ Tag : ID {$$ = newnode("Tag", $1);}
     ;
 VarDec : ID {$$ = newnode("VarDec", $1);}
        | VarDec LB INT RB {$$ = newnode("VarDec", $1, $2, $3, $4);}
-	   | VarDec LB error RB {yyerror("<<Error Type B.1>> Meow. INT Expected.");}
+	   | VarDec LB error RB {
+			yyerror("<<Error Type B.1>> Meow. INT expected.");
+			raise_line_error(charno - 1, charno, _E_COLOR_ERR);
+		}
 	   ;
 FunDec : ID LP VarList RP {$$ = newnode("FunDec", $1, $2, $3, $4);}
        | ID LP RP {$$ = newnode("FunDec", $1, $2, $3);}
-       | ID LP error RP {yyerror("<<Error Type B.1>> Meow! VarList Expected.");}
+       | ID LP error RP {
+			yyerror("<<Error Type B.1>> Meow! Valid varList expected.");
+			raise_line_error(charno - 1, charno, _E_COLOR_ERR);
+		}
 	   ;
 VarList : ParamDec COMMA VarList {$$ = newnode("VarList", $1, $2, $3);}
         | ParamDec {$$ = newnode("VarList", $1);}
@@ -180,12 +175,27 @@ Stmt : Exp SEMI {$$ = newnode("Stmt", $1, $2);}
 	 | RETURN Exp SEMI {$$ = newnode("Stmt", $1, $2, $3);}
 	 | IF LP Exp RP Stmt %prec LOWER_THAN_ELSE {$$ = newnode("Stmt", $1, $2, $3, $4, $5);}
 	 | IF LP Exp RP Stmt ELSE Stmt {$$ = newnode("Stmt", $1, $2, $3, $4, $5, $6, $7);}
-	 | IF LP error RP {yyerror("<<Error Type B.1>> Meow! Valid expression required.");}
+	 | IF LP error RP {
+			yyerror("<<Error Type B.1>> Meow! Valid expression required.");
+			raise_line_error(charno - 1, charno, _E_COLOR_ERR);
+		}
 	 | WHILE LP Exp RP Stmt {$$ = newnode("Stmt", $1, $2, $3, $4, $5);}
-	 | Exp error {yyerror("<<Error Type B.0>> Meow? ``;'' is expected");}
-	 | IF error {yyerror("<<Error Type B.0>> Meow? ``('' is required");}
-	 | WHILE error {yyerror("<<Error Type B.0>> Meow? ``('' is required");}
-	 | WHILE LP error RP {yyerror("<<Error Type B.1>> Meow! Wtf is this? I can't read this expression.");}
+	 | Exp error {
+			yyerror("<<Error Type B.0>> Meow? ``;'' is expected");
+			raise_line_error_4(charno, charno + 1, _E_COLOR_ERR, ";");
+		}
+	 | IF error {
+			yyerror("<<Error Type B.0>> Meow? ``('' is required");
+			raise_line_error_4(charno, charno + 1, _E_COLOR_ERR, "(");
+		}
+	 | WHILE error {
+			yyerror("<<Error Type B.0>> Meow? ``('' is required");
+			raise_line_error_4(charno, charno + 1, _E_COLOR_ERR, ")");
+		}
+	 | WHILE LP error RP{
+			yyerror("<<Error Type B.1>> Meow! Wtf is this? I can't read this expression.");
+			raise_line_error(charno - 1, charno, _E_COLOR_ERR);
+		}
 	 ;
 DefList : Def DefList {$$ = newnode("DefList", $1, $2);}
         | /* empty */ {$$ = NULL;}
@@ -210,19 +220,39 @@ Exp : Exp ASSIGNOP Exp {$$ = newnode("Exp", $1, $2, $3);}
 	| MINUS Exp %prec STAR {$$ = newnode("Exp", $1, $2);}
 	| NOT Exp {$$ = newnode("Exp", $1, $2);}
 	| ID LP Args RP {$$ = newnode("Exp", $1, $2, $3, $4);}
-	| ID LP error RP {yyerror("<<Error Type B.1>> Meow! Valid argument expression required.");}
+	| ID LP error RP{
+		yyerror("<<Error Type B.1>> Meow! Valid argument expression required.");
+		raise_line_error(charno - 1, charno, _E_COLOR_ERR);
+	}
 	| ID LP RP {$$ = newnode("Exp", $1, $2, $3);}
 	| Exp LB Exp RB {$$ = newnode("Exp", $1, $2, $3, $4);}
-	| Exp LB error RB {yyerror("<<Error Type B.1>> Meow! Valid expression required.");}
+	| Exp LB error RB {
+		yyerror("<<Error Type B.1>> Meow! Valid expression required.");
+		raise_line_error(charno - 1, charno, _E_COLOR_ERR);
+	}
 	| Exp DOT ID {$$ = newnode("Exp", $1, $2, $3);}
 	| ID {$$ = newnode("Exp", $1);}
 	| INT {$$ = newnode("Exp", $1);}
 	| FLOAT {$$ = newnode("Exp", $1);}
-/*	| Exp LB error {yyerror("<<Error Type B.1>> Meow? Unexpected token: legal expression expected");}
-	| Exp LP error {yyerror("<<Error Type B.1>> Meow? Unexpected token: legal expression list expected");} */
 	;
 Args : Exp COMMA Args {$$ = newnode("Args", $1, $2, $3);}
      | Exp {$$ = newnode("Args", $1);}
 	 ;
 %%
-#include "lex.yy.c"
+#include "lexer.c"
+
+int main(int argc, char **argv)
+{
+	if (argc == 2)
+	{
+		yyin = fopen(argv[1], "r");
+		line_reader = fopen(argv[1], "r");
+	}
+	else
+	{
+		printf("Fatal: %sNo input file.\033[0m\n", write_color(_E_COLOR_ERR));
+		return -1;
+	}
+	move_to_next_line();
+	yyparse();
+}

@@ -5,6 +5,7 @@ int main()
 	int z = 1e; // 奇怪的浮点数
 	int x = 0x1G; // 奇怪的16进制数
 	int y = 09; // 奇怪的八进制数
+//	while true {}
 	int xx = sin(x y); // 奇怪的函数调用
 	if (x +) y = 0 // 没有分号
 	/* /* */ */
