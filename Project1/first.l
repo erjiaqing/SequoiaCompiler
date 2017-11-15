@@ -99,7 +99,7 @@ ANYWORD_INCLUDE_NEWLINE ((.|\n)*)
 }
 "/*" {yylval = NULL;charno += strlen(yytext);BEGIN(comment);}
 <comment>"*"+"/" {yylval = NULL;charno += 2;BEGIN(INITIAL);}
-<comment>\n {yylval = NULL;lineno++;charno = 1;}
+<comment>\n {yylval = NULL;move_to_next_line();}
 <comment>. {yylval = NULL;charno += 1;/* skip */}
 ";" {
     yylval = nnewnode(yytext, lineno, charno, lineno, charno + strlen(yytext));

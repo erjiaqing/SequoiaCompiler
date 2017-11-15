@@ -1,0 +1,9 @@
+line 4: <<Error Type A.2>> Nya! I cannot recognize ``~'', wtf!
+line 5: <<Error Type A.1>> Nya! I can recognize ``1e'', but why?
+line 6: <<Error Type A.0>> Nya? ``0x1G'' might be a wrong hex integer.
+line 7: <<Error Type A.0>> Nya? ``09'' might be a wrong oct integer.
+line 8: syntax error
+line 8: <<Error Type B.1>> Meow! Valid argument expression required.
+line 9: syntax error
+line 9: <<Error Type B.1>> Meow! Valid expression required.
+line 12: syntax error
