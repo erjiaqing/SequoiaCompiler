@@ -110,7 +110,6 @@ linenos}
 \end_layout
 
 \begin_layout Verbatim
-
 Ubuntu 17.10 (Kernel 4.13.0-16) GCC 7.2.0 Flex 2.6.1 Bison (GNU Bison 3.0.4) 
 \end_layout
 
@@ -119,7 +118,7 @@ Ubuntu 17.10 (Kernel 4.13.0-16) GCC 7.2.0 Flex 2.6.1 Bison (GNU Bison 3.0.4)
 \end_layout
 
 \begin_layout Standard
-尽力地进行语法分析。对于有一定错误的程序，也尝试生成抽象语法树。基本完成了必做样例和选做样例的全部内容。
+对于有一定错误的程序，也尝试生成抽象语法树。基本完成了必做样例和选做样例的全部内容。
 \end_layout
 
 \begin_layout Standard
@@ -131,7 +130,8 @@ Ubuntu 17.10 (Kernel 4.13.0-16) GCC 7.2.0 Flex 2.6.1 Bison (GNU Bison 3.0.4)
 \end_layout
 
 \begin_layout Standard
-另外，Makefile文件是非常简单的Make脚本，直接调用make即可编译。
+另外，Makefile文件是非常简单的Make脚本，直接调用make即可编译。如果使用make debug编译，可以生成含调试输出的程序，能输出更详细的错误信息
+。
 \end_layout
 
 \begin_layout Standard
@@ -224,11 +224,6 @@ line 10: syntax error
 \begin_layout Plain Layout
 
 line 10: <<Error Type B.0>> Meow? ``;'' is expected
-\end_layout
-
-\begin_layout Plain Layout
-
-line 12: <<Error Type B.1>> Meow! Valid StmtList expected.
 \end_layout
 
 \begin_layout Plain Layout
@@ -360,6 +355,10 @@ normal.c和dinic.c是两个由实际环境下的程序修改得到的程序，�
 
 \begin_layout Standard
 error*.c是一些简短的，包含了常见错误的C语言程序。
+\end_layout
+
+\begin_layout Standard
+相应的*.output或者*.error是我本机测试时，程序的输出。
 \end_layout
 
 \begin_layout Section
