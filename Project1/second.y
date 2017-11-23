@@ -17,10 +17,18 @@ int lineno = 0, charno = 1;
 int legal = 1;
 
 int yylex();
+// error type B
 void yyerror(const char *msg)
 {
 	legal = 0;
-	fprintf(stderr, "line %d: %s\n", lineno, msg);
+	fprintf(stderr, "error type B on line %d: %s\n", lineno, msg);
+}
+
+// error type A
+void llerror(const char *msg)
+{
+	legal = 0;
+	fprintf(stderr, "error type A on line %d: %s\n", lineno, msg);
 }
 
 void move_to_next_line()
@@ -127,7 +135,7 @@ Program : ExtDefList {$$ = newnode("Program", $1);travel($$, 0);}
 ExtDefList : ExtDef ExtDefList {$$ = newnode("ExtDefList", $1, $2);}
 		   | /* empty */ {$$ = NULL;}
 		   ;
-ExtDef : Specifier ExtDecList SEMI {$$ = newnode("ExtDef", $1, $2, $2);}
+ExtDef : Specifier ExtDecList SEMI {$$ = newnode("ExtDef", $1, $2, $3);}
 	   | Specifier SEMI {$$ = newnode("ExtDef", $1, $2);}
 	   | Specifier FunDec CompSt {$$ = newnode("ExtDef", $1, $2, $3);}
 	   ;
@@ -147,12 +155,12 @@ OptTag : ID {$$ = newnode("OptTag", $1);}
 Tag : ID {$$ = newnode("Tag", $1);}
 	;
 VarDec : ID {$$ = newnode("VarDec", $1);}
-	   | VarDec LB INT RB {$$ = newnode("VarDec", $1, $2, $3, $4);}
-	   | VarDec LB error RB {
-//			yyerror("<<Error Type B.1>> Meow. INT expected.");
-			raise_line_error(charno - 1, charno, _E_COLOR_ERR);
-		}
+	   | ID VarDimList {$$ = newnode("VarDec", $1, $2);}
 	   ;
+VarDimList : LB INT RB {$$ = newnode("VarDimList", $1, $2, $3);}
+		   | LB INT RB VarDimList {$$ = newnode("VarDimList", $1, $2, $3, $4);}
+           | LB error RB {raise_line_error(charno - 1, charno, _E_COLOR_ERR);}
+           ;
 FunDec : ID LP VarList RP {$$ = newnode("FunDec", $1, $2, $3, $4);}
 	   | ID LP RP {$$ = newnode("FunDec", $1, $2, $3);}
 	   | ID LP error RP {

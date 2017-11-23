@@ -1,10 +1,7 @@
-line 4: <<Error Type A.2>> Nya! I cannot recognize ``~'', wtf!
-line 5: <<Error Type A.1>> Nya! I can recognize ``1e'', but why?
-line 6: <<Error Type A.0>> Nya? ``0x1G'' might be a wrong hex integer.
-line 7: <<Error Type A.0>> Nya? ``09'' might be a wrong oct integer.
-line 9: syntax error
-line 9: <<Error Type B.1>> Meow! Valid argument expression required.
-line 10: syntax error
-line 10: <<Error Type B.1>> Meow! Valid expression required.
-line 11: syntax error
-line 11: <<Error Type B.0>> Meow? ``;'' is expected
+error type A on line 4: Nya! ``~'': wtf!
+error type A on line 5: Nya! ``1e'': is this an ID?
+error type A on line 6: Nya? ``0x1G'' might be a wrong hex integer.
+error type A on line 7: Nya? ``09'' might be a wrong oct integer.
+error type B on line 9: syntax error, unexpected ID, expecting RP
+error type B on line 10: syntax error, unexpected RP
+error type B on line 11: syntax error, unexpected DIV

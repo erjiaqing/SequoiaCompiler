@@ -64,8 +64,8 @@ ANYWORD_INCLUDE_NEWLINE ((.|\n)*)
 {ERRHEX} {
     char buf[1024];
     int val;
-    sprintf(buf, "<<Error Type A.0>> Nya? ``%s'' might be a wrong hex integer.", yytext);
-    yyerror(buf);
+    sprintf(buf, "Nya? ``%s'' might be a wrong hex integer.", yytext);
+    llerror(buf);
 	raise_line_error(charno, charno + strlen(yytext), _E_COLOR_ERR);
     sprintf(buf, "INT: (HEX)%s => ERR", yytext);
     yylval = nnewnode(buf, lineno, charno, lineno, charno + strlen(yytext));
@@ -75,8 +75,8 @@ ANYWORD_INCLUDE_NEWLINE ((.|\n)*)
 {ERROCT} {
     char buf[1024];
     int val;
-    sprintf(buf, "<<Error Type A.0>> Nya? ``%s'' might be a wrong oct integer.", yytext);
-    yyerror(buf);
+    sprintf(buf, "Nya? ``%s'' might be a wrong oct integer.", yytext);
+    llerror(buf);
 	raise_line_error(charno, charno + strlen(yytext), _E_COLOR_ERR);
     sprintf(buf, "INT: (OCT)%s => ERR", yytext);
     yylval = nnewnode(buf, lineno, charno, lineno, charno + strlen(yytext));
@@ -187,8 +187,8 @@ ANYWORD_INCLUDE_NEWLINE ((.|\n)*)
 }
 {ERRWORD} {
     char buf[1024];
-    sprintf(buf, "<<Error Type A.1>> Nya! I can recognize ``%s'', but why?", yytext);
-    yyerror(buf);
+    sprintf(buf, "Nya! ``%s'': is this an ID?", yytext);
+    llerror(buf);
 	raise_line_error(charno, charno + strlen(yytext), _E_COLOR_ERR);
     sprintf(buf, "ERRWORD: %s", yytext);
     yylval = nnewnode(buf, lineno, charno, lineno, charno + strlen(yytext));
@@ -197,8 +197,8 @@ ANYWORD_INCLUDE_NEWLINE ((.|\n)*)
 }
 . {
     char buf[1024];
-    sprintf(buf, "<<Error Type A.2>> Nya! I cannot recognize ``%c'', wtf!", yytext[0]);
-	yyerror(buf);
+    sprintf(buf, "Nya! ``%c'': wtf!", yytext[0]);
+	llerror(buf);
 	raise_line_error(charno, charno + strlen(yytext), _E_COLOR_ERR);
 	charno += strlen(yytext);
     yylval = NULL; /* skip */

@@ -9,10 +9,22 @@
 \usepackage[linguistics]{forest}
 \usepackage[all]{xy}
 \usepackage{minted}
+\usepackage[indentfirst]{xeCJK}
 \usepackage{indentfirst}
 \setlength{\parindent}{2em}
 \XeTeXlinebreaklocale "zh"
 \XeTeXlinebreakskip = 0pt plus 1pt minus 0.1pt
+
+\newcommand\fontnamehei{STHeitiSC-Light}
+\newcommand\fontnamesong{STSongti-SC-Regular}
+\newcommand\fontnamekai{STKaitiSC-Regular}
+\newcommand\fontnamemono{Courier New}
+\newcommand\fontnameroman{Kannada MN}
+
+\setCJKmainfont{\fontnamesong}
+\setCJKsansfont[BoldFont=\fontnamekai]{\fontnamekai}
+\setCJKmonofont{\fontnamemono}
+
 \setminted{
 baselinestretch=1.2,
 fontsize=\footnotesize,
@@ -22,18 +34,19 @@ linenos}
 \maintain_unincluded_children false
 \language japanese-cjk
 \language_package default
-\inputencoding auto
+\inputencoding utf8-plain
 \fontencoding global
 \font_roman "default" "Source Han Serif SC"
 \font_sans "default" "Source Han Sans SC"
 \font_typewriter "default" "default"
 \font_math "auto" "auto"
 \font_default_family default
-\use_non_tex_fonts true
+\use_non_tex_fonts false
 \font_sc false
 \font_osf false
 \font_sf_scale 100 100
 \font_tt_scale 100 100
+\font_cjk SourceHanSerifSC
 \graphics default
 \default_output_format pdf4
 \output_sync 0
@@ -84,7 +97,7 @@ linenos}
 \tocdepth 3
 \paragraph_separation indent
 \paragraph_indentation default
-\quotes_language swedish
+\quotes_language english
 \papercolumns 1
 \papersides 1
 \paperpagestyle default
@@ -151,22 +164,22 @@ begin{minted}{text}
 
 \begin_layout Plain Layout
 
-line 4: <<Error Type A.2>> Nya! I cannot recognize ``~'', wtf!
+error type A on line 4: Nya! ``~'': wtf!
 \end_layout
 
 \begin_layout Plain Layout
 
-line 5: <<Error Type A.1>> Nya! I can recognize ``1e'', but why?
+error type A on line 5: Nya! ``1e'': is this an ID?
 \end_layout
 
 \begin_layout Plain Layout
 
-line 6: <<Error Type A.0>> Nya? ``0x1G'' might be a wrong hex integer.
+error type A on line 6: Nya? ``0x1G'' might be a wrong hex integer.
 \end_layout
 
 \begin_layout Plain Layout
 
-line 7: <<Error Type A.0>> Nya? ``09'' might be a wrong oct integer.
+error type A on line 7: Nya? ``09'' might be a wrong oct integer.
 \end_layout
 
 \begin_layout Plain Layout
@@ -198,32 +211,17 @@ begin{minted}{text}
 
 \begin_layout Plain Layout
 
-line 8: syntax error
+error type B on line 9: syntax error, unexpected ID, expecting RP
 \end_layout
 
 \begin_layout Plain Layout
 
-line 8: <<Error Type B.1>> Meow! Valid argument expression required.
+error type B on line 10: syntax error, unexpected RP
 \end_layout
 
 \begin_layout Plain Layout
 
-line 9: syntax error
-\end_layout
-
-\begin_layout Plain Layout
-
-line 9: <<Error Type B.1>> Meow! Valid expression required.
-\end_layout
-
-\begin_layout Plain Layout
-
-line 10: syntax error
-\end_layout
-
-\begin_layout Plain Layout
-
-line 10: <<Error Type B.0>> Meow? ``;'' is expected
+error type B on line 11: syntax error, unexpected DIV
 \end_layout
 
 \begin_layout Plain Layout
@@ -327,6 +325,26 @@ end{minted}
 
 \begin_layout Standard
 每一行的开头表示了语法树节点对应的源代码中的位置。同时对于部分终结符也只显示其文本（如各种括号，一些运算符等）
+\end_layout
+
+\begin_layout Section
+特点
+\end_layout
+
+\begin_layout Standard
+原来的数组定义我觉得挺反人类的，不利于后面的类型计算，重新定义了变量定义的文法：
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\begin{array}{rcl}
+\mathit{VarDec} & \rightarrow & \mathbf{ID}\\
+ & | & \mathbf{ID}\ \mathit{VarDimList}\\
+\mathit{VarDimList} & \rightarrow & \mathbf{[\ int\ ]}\\
+ & | & \mathbf{[\ int\ ]\ }\mathit{VarDimList}
+\end{array}$
+\end_inset
+
+
 \end_layout
 
 \begin_layout Section
