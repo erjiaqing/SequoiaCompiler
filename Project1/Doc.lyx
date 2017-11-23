@@ -131,20 +131,13 @@ Ubuntu 17.10 (Kernel 4.13.0-16) GCC 7.2.0 Flex 2.6.1 Bison (GNU Bison 3.0.4)
 \end_layout
 
 \begin_layout Standard
-对于有一定错误的程序，也尝试生成抽象语法树。基本完成了必做样例和选做样例的全部内容。
+基本完成了必做样例和选做样例的全部内容。可以构建抽象语法树，并给出每一个节点对应的源代码(的范围)。如果机房快要关门了或者急着去约会，那么看完第四节后就可以去看
+代码了，如果编译不了，就直接看我的样例输出，第二面中间往后的内容是为了文档完整写的，没啥新东西，跟别人的都一样。
 \end_layout
 
 \begin_layout Standard
-构建抽象语法树，并给出每一个节点对应的源代码(的范围)。
-\end_layout
-
-\begin_layout Standard
-在附件中准备了很多.c文件，是我自己用来测试功能的，涵盖了大部分语法点。
-\end_layout
-
-\begin_layout Standard
-另外，Makefile文件是非常简单的Make脚本，直接调用make即可编译。如果使用make debug编译，可以生成含调试输出的程序，能输出更详细的错误信息
-。
+在附件中准备了很多.c文件，是我自己用来测试功能的，涵盖了大部分语法点。另外，Makefile文件是非常简单的Make脚本，直接调用make即可编译。如果使用ma
+ke debug编译，可以生成含调试输出的程序，能输出更详细的错误信息。
 \end_layout
 
 \begin_layout Standard
@@ -336,6 +329,7 @@ end{minted}
 \end_layout
 
 \begin_layout Standard
+\align center
 \begin_inset Formula $\begin{array}{rcl}
 \mathit{VarDec} & \rightarrow & \mathbf{ID}\\
  & | & \mathbf{ID}\ \mathit{VarDimList}\\
@@ -730,7 +724,7 @@ ERRWORD ([a-zA-Z0-9_]+)
 
 \begin_layout Plain Layout
 
-    yyerror(buf);
+    llerror(buf);
 \end_layout
 
 \begin_layout Plain Layout
@@ -771,7 +765,7 @@ end{minted}
 \end_layout
 
 \begin_layout Standard
-来表示。因为yyerror的签名不能格式化，所以需要用sprintf来格式化错误信息。在这一种情况下，我将其认定为一个ID
+来表示。用sprintf来格式化错误信息，同时定义了llerror用于输出A类错误。在这一种情况下，我将其认定为一个ID
 \end_layout
 
 \begin_layout Section
