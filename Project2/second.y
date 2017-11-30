@@ -9,6 +9,9 @@
 #include "extend.h"
 #include "node.c"
 
+#include "trie.h"
+#include "symbol.h"
+
 extern FILE* yyin;
 FILE* line_reader;
 
