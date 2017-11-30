@@ -14,6 +14,9 @@ trienode* new_node()
 
 int trie_insert(char *iden, int item_id)
 {
+#ifdef _DEBUG
+	fprintf(stderr, "[%sINFO\033[0m] trie insert %s%s\033[0m\n", write_color(_E_COLOR_INFO), wrtie_color(_E_COLOR_OK), iden);
+#endif
 	trienode* cur;
 	if (trie_root == NULL) trie_root = new_node();
 	cur = trie_root;

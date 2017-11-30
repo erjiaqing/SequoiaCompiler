@@ -5,12 +5,20 @@ typedef struct node{
 	char *label;
 	int soncnt;
 	int start_lineno, start_pos, end_lineno, end_pos;
+	int type;
+	int lr; // left or right
+	int len;
+	union {
+		int intval;
+		float floatval;
+		char* orig;
+	}val;
 	struct node** son;
 } node;
 
 typedef struct node* node_star;
 
-node_star _newnode(char *name, int start_lineno, int start_pos, int end_lineno, int end_pos, int n, ...)
+node_star _newnode(char *name, int type, char *val, int start_lineno, int start_pos, int end_lineno, int end_pos, int n, ...)
 {
 #ifdef _DEBUG
 	fprintf(stderr, "[%sINFO\033[0m] new node %s%s\033[0m\n", write_color(_E_COLOR_INFO), write_color(_E_COLOR_OK), name);
@@ -18,6 +26,17 @@ node_star _newnode(char *name, int start_lineno, int start_pos, int end_lineno, 
 	node_star ret = (node_star) malloc(sizeof(node));
 	ret->label = (char*) malloc((strlen(name) + 5) * (sizeof(char)));
 	strcpy(ret->label, name);
+	ret->type = type;
+	ret->len = 0;
+	if (type == 1)
+		ret->val.intval = atoi(val);
+	else if (type == 2)
+		ret->val.floatval = atof(val);
+	else
+	{
+		ret->val.orig = (char*) malloc((strlen(val) + 1) * (sizeof(char)));
+		strcpy(ret->val.orig, val);
+	}
 	//fprintf(stderr, "Newnode: %s\n", ret->label);
 	va_list vl;
 	va_start(vl, n);

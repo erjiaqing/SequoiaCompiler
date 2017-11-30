@@ -14,6 +14,7 @@
 
 extern FILE* yyin;
 FILE* line_reader;
+FILE* asm_writer;
 
 char line_buffer[65536];
 int lineno = 0, charno = 1;
@@ -96,8 +97,9 @@ void _raise_line_error(int from, int to, int level, char *note)
 
 // 重写新建节点的伪函数，方便自己调用
 
-#define nnewnode(_000, a, b, c, d) _newnode(_000, a, b, c, d, 0)
-#define newnode(_000, ...) _newnode(_000, 0, 0, 0, 0, PP_NARG(__VA_ARGS__), ##__VA_ARGS__)
+#define nnewnode(_000, a1, b1, a, b, c, d) _newnode(_000, a1, b1, a, b, c, d, 0)
+#define newnode(_000, ...) _newnode(_000, 0, "", 0, 0, 0, 0, PP_NARG(__VA_ARGS__), ##__VA_ARGS__)
+#define vnewnode(_000, a, b, ...) _newnode(_000, a, b, 0, 0, 0, 0, PP_NARG(__VA_ARGS__), ##__VA_ARGS__)
 
 // 遍历，内存漏就漏吧= =
 
@@ -148,31 +150,44 @@ ExtDecList : VarDec {$$ = newnode("ExtDecList", $1);}
 Specifier : TYPE {$$ = newnode("Specifier", $1);}
 		  | StructSpecifier {$$ = newnode("StructSpecifier", $1);}
 		  ;
-StructSpecifier : STRUCT OptTag LC DefList RC {$$ = newnode("StructSpecifier", $1, $2, $3, $4, $5);}
+StructSpecifier : STRUCT OptTag LC DefList RC {
+					$$ = newnode("StructSpecifier", $1, $2, $3, $4, $5);
+				}
 				| STRUCT OptTag LC error RC {yyerror("<<Error Type B.1>> Meow. Valid DefList expected.");}
 				| STRUCT Tag {$$ = newnode("StructSpecifier", $1, $2);}
 				;
-OptTag : ID {$$ = newnode("OptTag", $1);}
-	   | /* empty */ {$$ = NULL;}
+OptTag : ID {$$ = vnewnode("OptTag", 0, $1->val.orig, $1);}
+	   | /* empty */ {
+			char buf[1024];
+			sprintf(buf, "%d_%d_struct", lineno, charno);
+			// 拿数字打头，这样不会重复
+			$$ = vnewnode("OptTag", 0, buf);
+		}
 	   ;
-Tag : ID {$$ = newnode("Tag", $1);}
+Tag : ID {$$ = vnewnode("Tag", 0, $1->val.orig, $1);}
 	;
-VarDec : ID {$$ = newnode("VarDec", $1);}
-	   | ID VarDimList {$$ = newnode("VarDec", $1, $2);}
+VarDec : ID {$$ = vnewnode("VarDec", 0, $1->val.orig, $1);}
+	   | ID VarDimList {$$ = vnewnode("VarDec", 0, $1->val.orig, $1, $2);}
 	   ;
 VarDimList : LB INT RB {$$ = newnode("VarDimList", $1, $2, $3);}
 		   | LB INT RB VarDimList {$$ = newnode("VarDimList", $1, $2, $3, $4);}
            | LB error RB {raise_line_error(charno - 1, charno, _E_COLOR_ERR);}
            ;
-FunDec : ID LP VarList RP {$$ = newnode("FunDec", $1, $2, $3, $4);}
-	   | ID LP RP {$$ = newnode("FunDec", $1, $2, $3);}
+FunDec : ID LP VarList RP {$$ = vnewnode("FunDec", 0, $1->val.orig, $1, $2, $3, $4);}
+	   | ID LP RP {$$ = vnewnode("FunDec", 0, $1->val.orig, $1, $2, $3);}
 	   | ID LP error RP {
 //			yyerror("<<Error Type B.1>> Meow! Valid varList expected.");
 			raise_line_error(charno - 1, charno, _E_COLOR_ERR);
 		}
 	   ;
-VarList : ParamDec COMMA VarList {$$ = newnode("VarList", $1, $2, $3);}
-		| ParamDec {$$ = newnode("VarList", $1);}
+VarList : ParamDec COMMA VarList {
+				$$ = newnode("VarList", $1, $2, $3);
+				$$->len = $3->len + 1;
+			}
+		| ParamDec {
+				$$ = newnode("VarList", $1);
+				$$->len = 1;
+			}
 		| ParamDec error {yyerror("<<Error Type B.0>> `,' expected");yyerrok;}
 		;
 ParamDec : Specifier VarDec {$$ = newnode("ParamDec", $1, $2);}
@@ -255,10 +270,11 @@ Args : Exp COMMA Args {$$ = newnode("Args", $1, $2, $3);}
 
 int main(int argc, char **argv)
 {
-	if (argc == 2)
+	if (argc == 2 || argc == 3)
 	{
 		yyin = fopen(argv[1], "r");
 		line_reader = fopen(argv[1], "r");
+		asm_writer = fopen(argc == 3 ? argv[2] : "a.asm", "w+");
 	}
 	else
 	{

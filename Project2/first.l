@@ -27,19 +27,19 @@ ANYWORD_INCLUDE_NEWLINE ((.|\n)*)
 {TYPE} {
     char buf[1024];
     sprintf(buf, "TYPE: %s", yytext);
-    yylval = nnewnode(buf, lineno, charno, lineno, charno + strlen(yytext));
+    yylval = nnewnode(buf, 0, yytext, lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return TYPE;
 }
-{IF} {yylval = nnewnode(yytext, lineno, charno, lineno, charno + strlen(yytext));charno += strlen(yytext);return IF;}
-{ELSE} {yylval = nnewnode(yytext, lineno, charno, lineno, charno + strlen(yytext));charno += strlen(yytext);return ELSE;}
-{WHILE} {yylval = nnewnode(yytext, lineno, charno, lineno, charno + strlen(yytext));charno += strlen(yytext);return WHILE;}
-{RETURN} {yylval = nnewnode(yytext, lineno, charno, lineno, charno + strlen(yytext));charno += strlen(yytext);return RETURN;}
-{STRUCT} {yylval = nnewnode(yytext, lineno, charno, lineno, charno + strlen(yytext));charno += strlen(yytext);return STRUCT;}
+{IF} {yylval = nnewnode(yytext, 0, yytext, lineno, charno, lineno, charno + strlen(yytext));charno += strlen(yytext);return IF;}
+{ELSE} {yylval = nnewnode(yytext, 0, yytext, lineno, charno, lineno, charno + strlen(yytext));charno += strlen(yytext);return ELSE;}
+{WHILE} {yylval = nnewnode(yytext, 0, yytext, lineno, charno, lineno, charno + strlen(yytext));charno += strlen(yytext);return WHILE;}
+{RETURN} {yylval = nnewnode(yytext, 0, yytext, lineno, charno, lineno, charno + strlen(yytext));charno += strlen(yytext);return RETURN;}
+{STRUCT} {yylval = nnewnode(yytext, 0, yytext, lineno, charno, lineno, charno + strlen(yytext));charno += strlen(yytext);return STRUCT;}
 {INT} {
     char buf[1024];
     sprintf(buf, "INT: (DEC)%s", yytext);
-    yylval = nnewnode(buf, lineno, charno, lineno, charno + strlen(yytext));
+    yylval = nnewnode(buf, 1, yytext, lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return INT;
 }
@@ -48,7 +48,7 @@ ANYWORD_INCLUDE_NEWLINE ((.|\n)*)
     int val;
     sscanf(yytext, "%x", &val);
     sprintf(buf, "INT: (HEX)%s => %d", yytext, val);
-    yylval = nnewnode(buf, lineno, charno, lineno, charno + strlen(yytext));
+    yylval = nnewnode(buf, 1, "0", lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return INT;
 }
@@ -57,7 +57,7 @@ ANYWORD_INCLUDE_NEWLINE ((.|\n)*)
     int val;
     sscanf(yytext, "%o", &val);
     sprintf(buf, "INT: (OCT)%s => %d", yytext, val);
-    yylval = nnewnode(buf, lineno, charno, lineno, charno + strlen(yytext));
+    yylval = nnewnode(buf, 1, "0", lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return INT;
 }
@@ -68,7 +68,7 @@ ANYWORD_INCLUDE_NEWLINE ((.|\n)*)
     llerror(buf);
 	raise_line_error(charno, charno + strlen(yytext), _E_COLOR_ERR);
     sprintf(buf, "INT: (HEX)%s => ERR", yytext);
-    yylval = nnewnode(buf, lineno, charno, lineno, charno + strlen(yytext));
+    yylval = nnewnode(buf, 1, "0", lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return INT;
 }
@@ -79,21 +79,21 @@ ANYWORD_INCLUDE_NEWLINE ((.|\n)*)
     llerror(buf);
 	raise_line_error(charno, charno + strlen(yytext), _E_COLOR_ERR);
     sprintf(buf, "INT: (OCT)%s => ERR", yytext);
-    yylval = nnewnode(buf, lineno, charno, lineno, charno + strlen(yytext));
+    yylval = nnewnode(buf, 1, "0", lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return INT;
 }
 {FLOAT} {
     char buf[1024];
     sprintf(buf, "FLOAT: %s => %.8lf", yytext, atof(yytext));
-    yylval = nnewnode(buf, lineno, charno, lineno, charno + strlen(yytext));
+    yylval = nnewnode(buf, 2, yytext, lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return FLOAT;
 }
 {ID} {
     char buf[1024];
     sprintf(buf, "ID: %s", yytext);
-    yylval = nnewnode(buf, lineno, charno, lineno, charno + strlen(yytext));
+    yylval = nnewnode(buf, 0, yytext, lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return ID;
 }
@@ -102,82 +102,82 @@ ANYWORD_INCLUDE_NEWLINE ((.|\n)*)
 <comment>\n {yylval = NULL;move_to_next_line();}
 <comment>. {yylval = NULL;charno += 1;/* skip */}
 ";" {
-    yylval = nnewnode(yytext, lineno, charno, lineno, charno + strlen(yytext));
+    yylval = nnewnode(yytext, 0, yytext, lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return SEMI;
 }
 "," {
-    yylval = nnewnode(yytext, lineno, charno, lineno, charno + strlen(yytext));
+    yylval = nnewnode(yytext, 0, yytext, lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return COMMA;
 }
 "=" {
-    yylval = nnewnode(yytext, lineno, charno, lineno, charno + strlen(yytext));
+    yylval = nnewnode(yytext, 0, yytext, lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return ASSIGNOP;
 }
 ">"|"<"|">="|"<="|"=="|"!=" {
     char buf[1024];
     sprintf(buf, "RELOP: %s", yytext);
-    yylval = nnewnode(buf, lineno, charno, lineno, charno + strlen(yytext));
+    yylval = nnewnode(buf, 0, yytext, lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return RELOP;
 }
 "+" {
-    yylval = nnewnode(yytext, lineno, charno, lineno, charno + strlen(yytext));
+    yylval = nnewnode(yytext, 0, yytext, lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return PLUS;
 }
 "-" {
-    yylval = nnewnode(yytext, lineno, charno, lineno, charno + strlen(yytext));
+    yylval = nnewnode(yytext, 0, yytext, lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return MINUS;}
 "*" {
-    yylval = nnewnode(yytext, lineno, charno, lineno, charno + strlen(yytext));
+    yylval = nnewnode(yytext, 0, yytext, lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return STAR;}
 "/" {
-    yylval = nnewnode(yytext, lineno, charno, lineno, charno + strlen(yytext));
+    yylval = nnewnode(yytext, 0, yytext, lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return DIV;}
 "&&" {
-    yylval = nnewnode(yytext, lineno, charno, lineno, charno + strlen(yytext));
+    yylval = nnewnode(yytext, 0, yytext, lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return AND;}
 "||" {
-    yylval = nnewnode(yytext, lineno, charno, lineno, charno + strlen(yytext));
+    yylval = nnewnode(yytext, 0, yytext, lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return OR;}
 "." {
-    yylval = nnewnode(yytext, lineno, charno, lineno, charno + strlen(yytext));
+    yylval = nnewnode(yytext, 0, yytext, lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return DOT;}
 "!" {
-    yylval = nnewnode(yytext, lineno, charno, lineno, charno + strlen(yytext));
+    yylval = nnewnode(yytext, 0, yytext, lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return NOT;}
 "(" {
-    yylval = nnewnode(yytext, lineno, charno, lineno, charno + strlen(yytext));
+    yylval = nnewnode(yytext, 0, yytext, lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return LP;}
 ")" {
-    yylval = nnewnode(yytext, lineno, charno, lineno, charno + strlen(yytext));
+    yylval = nnewnode(yytext, 0, yytext, lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return RP;}
 "[" {
-    yylval = nnewnode(yytext, lineno, charno, lineno, charno + strlen(yytext));
+    yylval = nnewnode(yytext, 0, yytext, lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return LB;}
 "]" {
-    yylval = nnewnode(yytext, lineno, charno, lineno, charno + strlen(yytext));
+    yylval = nnewnode(yytext, 0, yytext, lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return RB;}
 "{" {
-    yylval = nnewnode(yytext, lineno, charno, lineno, charno + strlen(yytext));
+    yylval = nnewnode(yytext, 0, yytext, lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return LC;}
 "}" {
-    yylval = nnewnode(yytext, lineno, charno, lineno, charno + strlen(yytext));
+    yylval = nnewnode(yytext, 0, yytext, lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return RC;}
 \n {
@@ -191,7 +191,7 @@ ANYWORD_INCLUDE_NEWLINE ((.|\n)*)
     llerror(buf);
 	raise_line_error(charno, charno + strlen(yytext), _E_COLOR_ERR);
     sprintf(buf, "ERRWORD: %s", yytext);
-    yylval = nnewnode(buf, lineno, charno, lineno, charno + strlen(yytext));
+    yylval = nnewnode(buf, 0, yytext, lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return ID;
 }

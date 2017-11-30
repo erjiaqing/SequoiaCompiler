@@ -38,6 +38,4 @@ int new_symbol_item(int type, int is_array, int width, int id, int father, int a
 	return ejq__symbol_table_used;
 }
 
-
-
 #endif
