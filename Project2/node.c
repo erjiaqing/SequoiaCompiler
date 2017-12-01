@@ -1,6 +1,8 @@
 #ifndef __EJQ_YACC_NODE_C_
 #define __EJQ_YACC_NODE_C_
 
+#include "node_type.h"
+
 typedef struct node{
 	char *label;
 	int soncnt;

@@ -108,12 +108,90 @@ void travel(node_star rt, int lvl)
 	if (!legal) {
 		exit(1);
 	}
-	printf("[%3d:%3d]->[%3d:%3d]", rt->start_lineno, rt->start_pos, rt->end_lineno, rt->end_pos - 1);
-	for (int i = 0; i < lvl; i++) printf("  ");
-	printf("%s\n", rt->label);
-	for (int i = 0; i < rt->soncnt; i++)
+//	printf("[%3d:%3d]->[%3d:%3d]", rt->start_lineno, rt->start_pos, rt->end_lineno, rt->end_pos - 1);
+//	for (int i = 0; i < lvl; i++) printf("  ");
+//	printf("%s\n", rt->label);
+    switch (rt->type) {
+		case _E_IF:
+		{
+			printf("IFNOT\n");
+			travel(rt->son[2], lvl + 1);
+			printf("GOTO lab%p_false\n", rt);
+			travel(rt->son[4], lvl + 1);
+			printf("LABEL lab%p_false\n", rt);
+			break;
+		}
+		case _E_IF_ELSE:
+		{
+			printf("IFNOT\n");
+			travel(rt->son[2], lvl + 1);
+			printf("GOTO lab%p_false\n", rt);
+			travel(rt->son[4], lvl + 1);
+			printf("GOTO lab%p_end\n", rt);
+			printf("LABEL lab%p_false\n", rt);
+			travel(rt->son[6], lvl + 1);
+			printf("LABEL lab%p_end\n", rt);
+			break;
+		}
+		case _E_WHILE:
+		{
+			printf("LABEL lab%p_while\n", rt);
+			printf("IFNOT\n");
+			travel(rt->son[2], lvl + 1);
+			printf("GOTO lab%p_end\n", rt);
+			travel(rt->son[4], lvl + 1);
+			printf("GOTO lab%p_while\n", rt);
+			printf("LABEL lab%p_end\n", rt);
+			break;
+		}
+		case _E_STMT_L:
+		{
+			travel(rt->son[0], lvl);
+			if (rt->son[1]) travel(rt->son[1], lvl);
+			break;
+		}
+		case _E_EXP:
+		{
+			printf("EXPBEGIN\nEXPBEGIN\n");
+			travel(rt->son[0], lvl);
+			printf("EXPEND\nEXPBEGIN\n");
+			travel(rt->son[2], lvl);
+			printf("EXPEND\n");
+			printf("OPER ");
+			travel(rt->son[1], lvl);
+			printf("EXPEND\n");
+			break;
+		}
+		case _E_EXP_UARY:
+		{
+			printf("EXP_UARY_BEGIN\n");
+			printf("EXPBEGIN\n");
+			travel(rt->son[1], lvl);
+			printf("EXPEND\n");
+			printf("OPER ");
+			travel(rt->son[0], lvl);
+			printf("EXP_UARY_END\n");
+			break;
+		}
+		case _NO_PRINT:
+		{
+			for (int i = 0; i < rt->soncnt; i++)
+				if (rt->son[i])
+					travel(rt->son[i], lvl + 1);
+			break;
+		}
+		default:
+		{
+			for (int i = 0; i < lvl; i++) printf("  ");
+			printf("%s\n", rt->label);
+			for (int i = 0; i < rt->soncnt; i++)
+				if (rt->son[i])
+					travel(rt->son[i], lvl + 1);
+		}
+	}
+/*	for (int i = 0; i < rt->soncnt; i++)
 		if (rt->son[i])
-			travel(rt->son[i], lvl + 1);
+			travel(rt->son[i], lvl + 1);*/
 }
 
 %}
@@ -192,21 +270,21 @@ VarList : ParamDec COMMA VarList {
 		;
 ParamDec : Specifier VarDec {$$ = newnode("ParamDec", $1, $2);}
 		 ;
-CompSt : LC DefList StmtList RC {$$ = newnode("CompSt", $1, $2, $3, $4);}
+CompSt : LC DefList StmtList RC {$$ = vnewnode("CompSt", _NO_PRINT, "CompSt", $2, $3);}
 	   ;
-StmtList : Stmt StmtList {$$ = newnode("StmtList", $1, $2);}
+StmtList : Stmt StmtList {$$ = vnewnode("StmtList", _E_STMT_L, "StmtList", $1, $2);}
 		 | /* empty */ {$$ = NULL;}
 		 ;
-Stmt : Exp SEMI {$$ = newnode("Stmt", $1, $2);}
-	 | CompSt {$$ = newnode("Stmt", $1);}
+Stmt : Exp SEMI {$$ = vnewnode("Stmt", _NO_PRINT, "", $1);}
+	 | CompSt {$$ = $1;}
 	 | RETURN Exp SEMI {$$ = newnode("Stmt", $1, $2, $3);}
-	 | IF LP Exp RP Stmt %prec LOWER_THAN_ELSE {$$ = newnode("Stmt", $1, $2, $3, $4, $5);}
-	 | IF LP Exp RP Stmt ELSE Stmt {$$ = newnode("Stmt", $1, $2, $3, $4, $5, $6, $7);}
+	 | IF LP Exp RP Stmt %prec LOWER_THAN_ELSE {$$ = vnewnode("Stmt", _E_IF, "IF", $1, $2, $3, $4, $5);}
+	 | IF LP Exp RP Stmt ELSE Stmt {$$ = vnewnode("Stmt", _E_IF_ELSE, "IF_ELSE", $1, $2, $3, $4, $5, $6, $7);}
 	 | IF LP error RP {
 //			yyerror("<<Error Type B.1>> Meow! Valid expression required.");
 			raise_line_error(charno - 1, charno, _E_COLOR_ERR);
 		}
-	 | WHILE LP Exp RP Stmt {$$ = newnode("Stmt", $1, $2, $3, $4, $5);}
+	 | WHILE LP Exp RP Stmt {$$ = vnewnode("Stmt", _E_WHILE, "", $1, $2, $3, $4, $5);}
 	 | Exp error {
 //			yyerror("<<Error Type B.0>> Meow? ``;'' is expected");
 			raise_line_error_4(charno, charno + 1, _E_COLOR_ERR, ";");
@@ -235,17 +313,17 @@ DecList : Dec {$$ = newnode("DecList", $1);}
 Dec : VarDec ASSIGNOP Exp {$$ = newnode("VarDec", $1, $2, $3);}
 	| VarDec {$$ = newnode("Dec", $1);}
 	;
-Exp : Exp ASSIGNOP Exp {$$ = newnode("Exp", $1, $2, $3);}
-	| Exp AND Exp {$$ = newnode("Exp", $1, $2, $3);}
-	| Exp OR Exp {$$ = newnode("Exp", $1, $2, $3);}
-	| Exp RELOP Exp {$$ = newnode("Exp", $1, $2, $3);}
-	| Exp PLUS Exp {$$ = newnode("Exp", $1, $2, $3);}
-	| Exp MINUS Exp {$$ = newnode("Exp", $1, $2, $3);}
-	| Exp STAR Exp {$$ = newnode("Exp", $1, $2, $3);}
-	| Exp DIV Exp {$$ = newnode("Exp", $1, $2, $3);}
-	| LP Exp RP {$$ = newnode("Exp", $1, $2, $3);}
-	| MINUS Exp %prec STAR {$$ = newnode("Exp", $1, $2);}
-	| NOT Exp {$$ = newnode("Exp", $1, $2);}
+Exp : Exp ASSIGNOP Exp {$$ = vnewnode("Exp", _E_EXP, "Assign", $1, $2, $3);}
+	| Exp AND Exp {$$ = vnewnode("Exp", _E_EXP, "And", $1, $2, $3);}
+	| Exp OR Exp {$$ = vnewnode("Exp", _E_EXP, "Or", $1, $2, $3);}
+	| Exp RELOP Exp {$$ = vnewnode("Exp", _E_EXP, "Relop", $1, $2, $3);}
+	| Exp PLUS Exp {$$ = vnewnode("Exp", _E_EXP, "Plus", $1, $2, $3);}
+	| Exp MINUS Exp {$$ = vnewnode("Exp", _E_EXP, "Minus", $1, $2, $3);}
+	| Exp STAR Exp {$$ = vnewnode("Exp", _E_EXP, "Star", $1, $2, $3);}
+	| Exp DIV Exp {$$ = vnewnode("Exp", _E_EXP, "Div", $1, $2, $3);}
+	| LP Exp RP {$$ = $2; /*newnode("Exp", $1, $2, $3); */}
+	| MINUS Exp %prec STAR {$$ = vnewnode("Exp", _E_EXP_UARY, "Uminus", $1, $2);}
+	| NOT Exp {$$ = vnewnode("Exp", _E_EXP_UARY, "Not", $1, $2);}
 	| ID LP Args RP {$$ = newnode("Exp", $1, $2, $3, $4);}
 	| ID LP error RP{
 //		yyerror("<<Error Type B.1>> Meow! Valid argument expression required.");
