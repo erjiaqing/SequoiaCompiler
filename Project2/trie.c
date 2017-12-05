@@ -40,7 +40,7 @@ size_t E_trie_node_used = 0;
 size_t E_trie_tot_node = 0;
 
 // 获取一个新的节点
-int __E_trie_new_node()
+size_t __E_trie_new_node()
 {
 	if (E_trie_tot_node == 0)
 	{
@@ -65,7 +65,7 @@ int __E_trie_new_node()
 	return E_trie_node_used++;
 }
 
-int __E_trie_fork_node(int orig)
+size_t __E_trie_fork_node(size_t orig)
 {
 	size_t T = __E_trie_new_node();
 	memcpy(E_trie_nodes[T].nxt, E_trie_nodes[orig].nxt, sizeof(E_trie_nodes[0].nxt));
@@ -74,7 +74,7 @@ int __E_trie_fork_node(int orig)
 }
 
 // 创建一个新版本，并设置根节点
-int __E_trie_new_version()
+size_t __E_trie_new_version()
 {
 	if (E_trie_version_cap == 0)
 	{
