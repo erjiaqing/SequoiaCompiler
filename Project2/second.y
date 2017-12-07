@@ -12,6 +12,8 @@
 extern FILE* yyin;
 FILE* line_reader;
 
+FILE* result_writer;
+
 char line_buffer[65536];
 int lineno = 0, charno = 1;
 int legal = 1;
@@ -104,15 +106,15 @@ void travel(node_star rt, int lvl)
 		exit(1);
 	}
 	//printf("[%3d:%3d]->[%3d:%3d]", rt->start_lineno, rt->start_pos, rt->end_lineno, rt->end_pos - 1);
-	for (int i = 0; i < lvl; i++) printf("  ");
-	printf("%s %d %d\n", rt->label, rt->soncnt, rt->start_lineno);
+	for (int i = 0; i < lvl; i++) fprintf(result_writer, "  ");
+	fprintf(result_writer, "%s %d %d\n", rt->label, rt->soncnt, rt->start_lineno);
 	for (int i = 0; i < rt->soncnt; i++)
 		if (rt->son[i])
 			travel(rt->son[i], lvl + 1);
 		else
         {
-			for (int i = 0; i < lvl + 1; i++) printf("  ");
-			printf("Eps 0 0\n");
+			for (int i = 0; i < lvl + 1; i++) fprintf(result_writer, "  ");
+			fprintf(result_writer, "Eps 0 0\n");
 		}
 }
 
@@ -257,7 +259,7 @@ Args : Exp COMMA Args {$$ = newnode("Args", $1, $3);}
 
 int main(int argc, char **argv)
 {
-	if (argc == 2)
+	if (argc >= 2)
 	{
 		yyin = fopen(argv[1], "r");
 		line_reader = fopen(argv[1], "r");
@@ -266,6 +268,11 @@ int main(int argc, char **argv)
 	{
 		printf("Fatal: %sNo input file.\033[0m\n", write_color(_E_COLOR_ERR));
 		return -1;
+	}
+	if (argc == 3) {
+		result_writer = fopen(argv[2], "w");
+	} else {
+		result_writer = stdout;
 	}
 	move_to_next_line();
 	yyparse();
