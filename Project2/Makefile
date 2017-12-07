@@ -13,7 +13,7 @@ lexer.c: first.l
 	lex -o lexer.c first.l
 cleanup:
 	$(info Cleanning Up...)
-	rm ejq_cc
-	rm y.tab.c
-	rm lexer.c
-	rm y.output
+	rm ejq_cc || echo "rm ejq_cc"
+	rm y.tab.c || echo "rm y.tab.cc"
+	rm lexer.c || echo "rm lexer.c"
+	rm y.output || echo "rm y.output"

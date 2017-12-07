@@ -11,6 +11,8 @@
 #define _E_EXP      0x01100000
 #define _E_EXP_UARY 0x01100001
 
+#define _E_DECLIST  0x01220001
+
 #define _NO_PRINT   0x10000000
 
 #endif
