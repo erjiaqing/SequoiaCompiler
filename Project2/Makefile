@@ -1,4 +1,4 @@
-all: y.tab.c lexer.c extend.h node.c
+all: y.tab.c lexer.c extend.h node.c project1.h project2.h
 	$(info Building 'ejq_cc'...)
 	gcc y.tab.c -O2 -ly -ll -o ejq_cc -std=gnu99
 	$(info 'ejq_cc' is parser)
