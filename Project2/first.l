@@ -38,7 +38,7 @@ ANYWORD_INCLUDE_NEWLINE ((.|\n)*)
 {STRUCT} {yylval = nnewnode(yytext, lineno, charno, lineno, charno + strlen(yytext));charno += strlen(yytext);return STRUCT;}
 {INT} {
     char buf[1024];
-    sprintf(buf, "INT %s", yytext);
+    sprintf(buf, "%s", yytext);
     yylval = nnewnode(buf, lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return INT;
@@ -47,7 +47,7 @@ ANYWORD_INCLUDE_NEWLINE ((.|\n)*)
     char buf[1024];
     int val;
     sscanf(yytext, "%x", &val);
-    sprintf(buf, "INT %d", val);
+    sprintf(buf, "%d", val);
     yylval = nnewnode(buf, lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return INT;
@@ -56,7 +56,7 @@ ANYWORD_INCLUDE_NEWLINE ((.|\n)*)
     char buf[1024];
     int val;
     sscanf(yytext, "%o", &val);
-    sprintf(buf, "INT %d", val);
+    sprintf(buf, "%d", val);
     yylval = nnewnode(buf, lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return INT;
@@ -67,7 +67,7 @@ ANYWORD_INCLUDE_NEWLINE ((.|\n)*)
     sprintf(buf, "Nya? ``%s'' might be a wrong hex integer.", yytext);
     llerror(buf);
 	raise_line_error(charno, charno + strlen(yytext), _E_COLOR_ERR);
-    sprintf(buf, "INT: (HEX)%s => ERR", yytext);
+    sprintf(buf, "0");
     yylval = nnewnode(buf, lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return INT;
@@ -78,21 +78,21 @@ ANYWORD_INCLUDE_NEWLINE ((.|\n)*)
     sprintf(buf, "Nya? ``%s'' might be a wrong oct integer.", yytext);
     llerror(buf);
 	raise_line_error(charno, charno + strlen(yytext), _E_COLOR_ERR);
-    sprintf(buf, "INT: (OCT)%s => ERR", yytext);
+    sprintf(buf, "0");
     yylval = nnewnode(buf, lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return INT;
 }
 {FLOAT} {
     char buf[1024];
-    sprintf(buf, "FLOAT %.8lf", atof(yytext));
+    sprintf(buf, "%.8lf", atof(yytext));
     yylval = nnewnode(buf, lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return FLOAT;
 }
 {ID} {
     char buf[1024];
-    sprintf(buf, "ID %s", yytext);
+    sprintf(buf, "%s", yytext);
     yylval = nnewnode(buf, lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return ID;

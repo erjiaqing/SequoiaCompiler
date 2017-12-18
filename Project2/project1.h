@@ -52,7 +52,8 @@ void _raise_line_error(int from, int to, int level, char *note)
 #define raise_line_error_4(a, b, c, d) _raise_line_error(a, b, c, d)
 #define raise_line_error(a, b, c) _raise_line_error(a, b, c, NULL)
 
-#define YYSTYPE node_star
+typedef void* void_star;
+#define YYSTYPE void_star
 
 /* 下面这一段是用来统计可变参数的个数的，来源是stackoverflow */
 

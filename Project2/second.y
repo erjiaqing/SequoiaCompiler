@@ -62,41 +62,125 @@ void travel(node_star rt, int lvl)
 
 %%
 
-Program : ExtDefList {$$ = newnode("Program", $1);travel($$, 0);}
+Program : ExtDefList {
+			dollarNode( Program );
+			_r->programBody = $1;
+			$$ = _r;
+		}
 		;
-ExtDefList : ExtDef ExtDefList {$$ = newnode("ExtDefList", $1, $2);}
+ExtDefList : ExtDef ExtDefList {
+		    dollarNode( ExtDefList );
+			_r->code = $1;
+			_r->next = $2;
+			$$ = _r;
+		}
 		   | /* empty */ {$$ = NULL;}
 		   ;
-ExtDef : Specifier ExtDecList SEMI {$$ = newnode("ExtDef", $1, $2);}
-	   | Specifier SEMI {$$ = newnode("ExtDef", $1);}
-	   | Specifier FunDec CompSt {$$ = newnode("ExtDef", $1, $2, $3);}
+ExtDef : Specifier ExtDecList SEMI {
+			dollarNode( ExtDef );
+			_r->spec = $1;
+			_r->dec = $2;
+			_r->function = NULL;
+			_r->functionBody = NULL;
+			$$ = _r;
+		}
+	   | Specifier SEMI {
+			dollarNode( ExtDef );
+			_r->spec = $1;
+			_r->dec = NULL;
+			_r->function = NULL;
+			_r->functionBody = NULL;
+			$$ = _r;
+		}
+	   | Specifier FunDec CompSt {
+			dollarNode( ExtDef );
+			_r->spec = $1;
+			_r->dec = NULL;
+			_r->function = $2;
+			_r->functionBody = $3;
+			$$ = _r;
+		}
 	   ;
-ExtDecList : VarDec {$$ = newnode("ExtDecList", $1);}
-		   | VarDec COMMA ExtDecList {$$ = newnode("ExtDecList", $1, $3);}
+ExtDecList : VarDec {
+			dollarNode( ExtDecList );
+			_r->dec = $1;
+			_r->next = NULL;
+			$$ = _r;
+		}
+		   | VarDec COMMA ExtDecList {
+			dollarNode( ExtDecList );
+			_r->dec = $1;
+			_r->next = $3;
+			$$ = _r;
+		}
 		   ;
-Specifier : TYPE {$$ = newnode("Specifier", $1);}
-		  | StructSpecifier {$$ = newnode("StructSpecifier", $1);}
+Specifier : TYPE {
+			dollarNode( Specifier );
+			_r->typeName = $1->label;
+			_r->structName = NULL;
+			$$ = _r;
+		}
+		  | StructSpecifier {
+			dollarNode( Specifier );
+			_r->typeName = NULL;
+			_r->structName = $1;
+			$$ = _r;
+		}
 		  ;
-StructSpecifier : STRUCT OptTag LC DefList RC {$$ = newnode("StructSpecifierWDEF", $1, $2, $4);}
+StructSpecifier : STRUCT OptTag LC DefList RC {
+			dollarNode( StructSpecifier );
+			_r->typeName = $2 ? (pCast(node_star, $2)->label) : NULL;
+			$$ = _r;
+		}
 				| STRUCT OptTag LC error RC {$$ = NULL;}
-				| STRUCT Tag {$$ = newnode("StructSpecifier", $1, $2);}
+				| STRUCT Tag {
+			dollarNode( StructSpecifier );
+			_r->typeName = (pCast(node_star, $2)->label);
+			$$ = _r;
+		}
 				;
-OptTag : ID {$$ = newnode("OptTag", $1);}
+OptTag : ID {$$ = $1;}
 	   | /* empty */ {$$ = NULL;}
 	   ;
-Tag : ID {$$ = newnode("Tag", $1);}
+Tag : ID {$$ = $1}
 	;
-VarDec : ID {$$ = newnode("VarDec", $1);}
-	   | ID VarDimList {$$ = newnode("VarDecARRAY", $1, $2);}
+VarDec : ID {$$ = $1}
+	   | ID VarDimList {
+			dollarNode( VarDec );
+			_r->varName = pCast(node_star, $1)->label;
+			_r->dim = $2;
+			$$ = _r;
+		}
 	   ;
-VarDimList : LB INT RB {$$ = newnode("VarDimList", $2);}
-		   | LB INT RB VarDimList {$$ = newnode("VarDimListMORE", $2, $4);}
-           | LB error RB {raise_line_error(charno - 1, charno, _E_COLOR_ERR);}
+VarDimList : LB INT RB {
+			dollarNode( VarDimList );
+			_r->thisDim = atoi(pCast(node_star, $2)->label);
+			_r->next = NULL;
+			$$ = _r;
+		}
+		   | LB INT RB VarDimList {
+			dollarNode( VarDimList );
+			_r->thisDim = atoi(pCast(node_star, $2)->label);
+			_r->next = $4;
+			$$ = _r;
+		}
+           | LB error RB {raise_line_error(charno - 1, charno, _E_COLOR_ERR);$$ = NULL;}
            ;
-FunDec : ID LP VarList RP {$$ = newnode("FunDecVL", $1, $3);}
-	   | ID LP RP {$$ = newnode("FunDec", $1);}
+FunDec : ID LP VarList RP {
+			dollarNode( FunDec );
+			_r->name = pCast(node_star, $1)->label;
+			_r->varList = $3;
+			$$ = _r;
+		}
+	   | ID LP RP {
+			dollarNode( FunDec );
+			_r->name = pCast(node_star, $1)->label;
+			_r->varList = NULL;
+			$$ = _r;
+		}
 	   | ID LP error RP {
 			raise_line_error(charno - 1, charno, _E_COLOR_ERR);
+			$$ = NULL;
 		}
 	   ;
 VarList : ParamDec COMMA VarList {$$ = newnode("VarList", $1, $3);}

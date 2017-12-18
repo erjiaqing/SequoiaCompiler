@@ -11,12 +11,15 @@
 #define _( x ) ECS##x
 #define N( x ) T_##x
 #define getNewNode( x ) getNew##x##Node()
+#define dollarNode( x ) T_##x *ret_kjfwhbjkwbm = getNewNode( x )
+#define _r ret_kjfwhbjkwbm 
 #define initGetNodeFunc( x ) \
 	T_##x *getNew##x##Node() {\
 		T_##x *ret = (T_##x *) malloc(sizeof( T_##x ) );\
 		memset(ret, 0, sizeof( T_##x ) );\
 		return ret;\
 	}
+#define pCast( x, y ) ((x *) y)
 // 和Project2相关的声明，包括细化节点类型
 
 declare_struct(Program);
@@ -93,7 +96,7 @@ initGetNodeFunc(VarDimList);
 
 struct _(FunDec) {
 	char *name;
-	N(VarList) *varlist;
+	N(VarList) *varList;
 };
 initGetNodeFunc(FunDec);
 
