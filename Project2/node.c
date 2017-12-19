@@ -10,6 +10,18 @@ typedef struct node{
 
 typedef struct node* node_star;
 
+int isLabel(node_star a, char *b)
+{
+	char *aa = a->label;
+	while (aa && b) {if (*(aa++) != *(b++)) return 0;}
+	return *(aa) == *(b);
+}
+
+char* getLabel(node_star a)
+{
+	return a->label;
+}
+
 node_star _newnode(char *name, int start_lineno, int start_pos, int end_lineno, int end_pos, int n, ...)
 {
 #ifdef _DEBUG

@@ -20,6 +20,15 @@
 		return ret;\
 	}
 #define pCast( x, y ) ((x *) y)
+
+#define foreach( x , y , type) for (type * y = x; y; y = y->next) 
+#define False (0)
+#define True (1)
+typedef int Bool;
+
+// Extend C grammar
+// make it like C++
+
 // 和Project2相关的声明，包括细化节点类型
 
 declare_struct(Program);
@@ -89,7 +98,7 @@ struct _(VarDec) {
 initGetNodeFunc(VarDec);
 
 struct _(VarDimList) {
-	int *thisDim;
+	int thisDim;
 	N(VarDimList) *next;
 };
 initGetNodeFunc(VarDimList);

@@ -22,6 +22,7 @@ int yylex();
 
 #include "project1.h"
 #include "project2.h"
+#include "project2.2.h"
 
 // 遍历，内存漏就漏吧= =
 
@@ -116,7 +117,7 @@ ExtDecList : VarDec {
 		   ;
 Specifier : TYPE {
 			dollarNode( Specifier );
-			_r->typeName = $1->label;
+			_r->typeName = pCast(node, $1)->label;
 			_r->structName = NULL;
 			$$ = _r;
 		}
@@ -129,38 +130,42 @@ Specifier : TYPE {
 		  ;
 StructSpecifier : STRUCT OptTag LC DefList RC {
 			dollarNode( StructSpecifier );
-			_r->typeName = $2 ? (pCast(node_star, $2)->label) : NULL;
+			_r->typeName = $2 ? (pCast(node, $2)->label) : NULL;
 			$$ = _r;
 		}
 				| STRUCT OptTag LC error RC {$$ = NULL;}
 				| STRUCT Tag {
 			dollarNode( StructSpecifier );
-			_r->typeName = (pCast(node_star, $2)->label);
+			_r->typeName = (pCast(node, $2)->label);
 			$$ = _r;
 		}
 				;
 OptTag : ID {$$ = $1;}
 	   | /* empty */ {$$ = NULL;}
 	   ;
-Tag : ID {$$ = $1}
+Tag : ID {$$ = $1;}
 	;
-VarDec : ID {$$ = $1}
+VarDec : ID {
+			dollarNode( VarDec );
+			_r->varName = pCast(node, $1)->label;
+			$$ = _r;
+		}
 	   | ID VarDimList {
 			dollarNode( VarDec );
-			_r->varName = pCast(node_star, $1)->label;
+			_r->varName = pCast(node, $1)->label;
 			_r->dim = $2;
 			$$ = _r;
 		}
 	   ;
 VarDimList : LB INT RB {
 			dollarNode( VarDimList );
-			_r->thisDim = atoi(pCast(node_star, $2)->label);
+			_r->thisDim = atoi(pCast(node, $2)->label);
 			_r->next = NULL;
 			$$ = _r;
 		}
 		   | LB INT RB VarDimList {
 			dollarNode( VarDimList );
-			_r->thisDim = atoi(pCast(node_star, $2)->label);
+			_r->thisDim = atoi(pCast(node, $2)->label);
 			_r->next = $4;
 			$$ = _r;
 		}
@@ -168,13 +173,13 @@ VarDimList : LB INT RB {
            ;
 FunDec : ID LP VarList RP {
 			dollarNode( FunDec );
-			_r->name = pCast(node_star, $1)->label;
+			_r->name = pCast(node, $1)->label;
 			_r->varList = $3;
 			$$ = _r;
 		}
 	   | ID LP RP {
 			dollarNode( FunDec );
-			_r->name = pCast(node_star, $1)->label;
+			_r->name = pCast(node, $1)->label;
 			_r->varList = NULL;
 			$$ = _r;
 		}
@@ -183,22 +188,92 @@ FunDec : ID LP VarList RP {
 			$$ = NULL;
 		}
 	   ;
-VarList : ParamDec COMMA VarList {$$ = newnode("VarList", $1, $3);}
-		| ParamDec {$$ = newnode("VarList", $1);}
+VarList : ParamDec COMMA VarList {
+			dollarNode( VarList );
+			_r->thisParam = $1;
+			_r->next = $3;
+			$$ = _r;
+		}
+		| ParamDec {
+			dollarNode( VarList );
+			_r->thisParam = $1;
+			_r->next = NULL;
+			$$ = _r;
+		}
 		| ParamDec error {yyerror("<<Error Type B.0>> `,' expected");yyerrok;}
 		;
-ParamDec : Specifier VarDec {$$ = newnode("ParamDec", $1, $2);}
+ParamDec : Specifier VarDec {
+			dollarNode( ParamDec );
+			_r->type = $1;
+			_r->name = $2;
+			$$ = _r;
+		}
 		 ;
-CompSt : LC DefList StmtList RC {$$ = newnode("CompSt", $2, $3);}
+CompSt : LC DefList StmtList RC {
+			dollarNode( CompSt );
+			_r->defList = $2;
+			_r->stmtList = $3;
+			$$ = _r;
+		}
 	   ;
-StmtList : Stmt StmtList {$$ = newnode("StmtList", $1, $2);}
+StmtList : Stmt StmtList {
+			dollarNode( StmtList );
+			_r->statement = $1;
+			_r->next = $2;
+			$$ = _r;
+		}
 		 | /* empty */ {$$ = NULL;}
 		 ;
-Stmt : Exp SEMI {$$ = newnode("StmtEXP", $1);}
-	 | CompSt {$$ = newnode("StmtCOMP", $1);}
-	 | RETURN Exp SEMI {$$ = newnode("StmtRET", $1, $2);}
-	 | IF LP Exp RP Stmt %prec LOWER_THAN_ELSE {$$ = newnode("StmtIF", $3, $5);}
-	 | IF LP Exp RP Stmt ELSE Stmt {$$ = newnode("StmtIFEL", $3, $5, $7);}
+Stmt : Exp SEMI {
+			dollarNode( Stmt );
+			_r->expression = $1;
+			_r->compStatement = NULL;
+			_r->isReturn = False;
+			_r->isWhile = False;
+			_r->ifTrue = NULL;
+			_r->ifFalse = NULL;
+			$$ = _r;
+		}
+	 | CompSt {
+			dollarNode( Stmt );
+			_r->expression = NULL;
+			_r->compStatement = $1;
+			_r->isReturn = False;
+			_r->isWhile = False;
+			_r->ifTrue = NULL;
+			_r->ifFalse = NULL;
+			$$ = _r;
+		}
+	 | RETURN Exp SEMI {
+			dollarNode( Stmt );
+			_r->expression = $2;
+			_r->compStatement = NULL;
+			_r->isReturn = True;
+			_r->isWhile = False;
+			_r->ifTrue = NULL;
+			_r->ifFalse = NULL;
+			$$ = _r;
+		}
+	 | IF LP Exp RP Stmt %prec LOWER_THAN_ELSE {
+			dollarNode( Stmt );
+			_r->expression = $3;
+			_r->compStatement = NULL;
+			_r->isReturn = False;
+			_r->isWhile = False;
+			_r->ifTrue = $5;
+			_r->ifFalse = NULL;
+			$$ = _r;
+		}
+	 | IF LP Exp RP Stmt ELSE Stmt {
+			dollarNode( Stmt );
+			_r->expression = $3;
+			_r->compStatement = NULL;
+			_r->isReturn = False;
+			_r->isWhile = False;
+			_r->ifTrue = $5;
+			_r->ifFalse = $7;
+			$$ = _r;
+		}
 	 | IF LP error RP {
 			raise_line_error(charno - 1, charno, _E_COLOR_ERR);
 		}
@@ -216,44 +291,190 @@ Stmt : Exp SEMI {$$ = newnode("StmtEXP", $1);}
 			raise_line_error(charno - 1, charno, _E_COLOR_ERR);
 		}
 	 ;
-DefList : Def DefList {$$ = newnode("DefList", $1, $2);}
+DefList : Def DefList {
+			dollarNode( DefList );
+			_r->def = $1;
+			_r->next = $2;
+			$$ = _r;
+		}
 		| /* empty */ {$$ = NULL;}
 		;
-Def : Specifier DecList SEMI {$$ = newnode("Def", $1, $2);}
+Def : Specifier DecList SEMI {
+			dollarNode( Def );
+			_r->type = $1;
+			_r->decList = $2;
+			$$ = _r;
+		}
 	;
-DecList : Dec {$$ = newnode("DecList", $1);}
-		| Dec COMMA DecList {$$ = newnode("DecList", $1, $3);}
+DecList : Dec {
+			dollarNode( DecList );
+			_r->dec = $1;
+			$$ = _r;
+		}
+		| Dec COMMA DecList {
+			dollarNode( DecList );
+			_r->dec = $1;
+			_r->next = $3;
+			$$ = _r;
+		}
 		;
-Dec : VarDec ASSIGNOP Exp {$$ = newnode("VarDecAssign", $1, $2, $3);}
-	| VarDec {$$ = newnode("VarDec", $1);}
+Dec : VarDec ASSIGNOP Exp {
+			dollarNode( Dec );
+			_r->var = $1;
+			_r->value = $3;
+			$$ = _r;
+		}
+	| VarDec {
+			dollarNode( Dec );
+			_r->var = $1;
+			$$ = _r;
+		}
 	;
-Exp : Exp ASSIGNOP Exp {$$ = newnode("Exp2", $1, $2, $3);}
-	| Exp AND Exp {$$ = newnode("Exp2", $1, $2, $3);}
-	| Exp OR Exp {$$ = newnode("Exp2", $1, $2, $3);}
-	| Exp RELOP Exp {$$ = newnode("Exp2", $1, $2, $3);}
-	| Exp PLUS Exp {$$ = newnode("Exp2", $1, $2, $3);}
-	| Exp MINUS Exp {$$ = newnode("Exp2", $1, $2, $3);}
-	| Exp STAR Exp {$$ = newnode("Exp2", $1, $2, $3);}
-	| Exp DIV Exp {$$ = newnode("Exp2", $1, $2, $3);}
-	| LP Exp RP {$$ = $2;/* 括号不要啦 */} 
-	| MINUS Exp %prec STAR {$$ = newnode("Exp1", $1, $2);}
-	| NOT Exp {$$ = newnode("Exp1", $1, $2);}
-	| ID LP Args RP {$$ = newnode("ExpFUNC", $1, $3);}
+Exp : Exp ASSIGNOP Exp {
+			dollarNode( Exp );
+			_r->lExp = $1;
+			_r->rExp = $3;
+			_r->op = EJQ_OP_ASSIGN;
+			$$ = _r;
+		}
+	| Exp AND Exp {
+			dollarNode( Exp );
+			_r->lExp = $1;
+			_r->rExp = $3;
+			_r->op = EJQ_OP_AND;
+			$$ = _r;
+		}
+	| Exp OR Exp {
+			dollarNode( Exp );
+			_r->lExp = $1;
+			_r->rExp = $3;
+			_r->op = EJQ_OP_OR;
+			$$ = _r;
+		}
+	| Exp RELOP Exp {
+			dollarNode( Exp );
+			_r->lExp = $1;
+			_r->rExp = $3;
+			if (isLabel($2, "<")) _r->op = EJQ_OP_RELOP_LT;
+			else if (isLabel($2, "<=")) _r->op = EJQ_OP_RELOP_LE;
+			else if (isLabel($2, "==")) _r->op = EJQ_OP_RELOP_EQ;
+			else if (isLabel($2, ">=")) _r->op = EJQ_OP_RELOP_GE;
+			else if (isLabel($2, ">"))  _r->op = EJQ_OP_RELOP_GT;
+			else if (isLabel($2, "!=")) _r->op = EJQ_OP_RELOP_NE;
+			else {
+				fprintf(stderr, "Bug, undefined relop!");
+				exit(-1);
+			}
+			$$ = _r;
+		}
+	| Exp PLUS Exp {
+			dollarNode( Exp );
+			_r->lExp = $1;
+			_r->rExp = $3;
+			_r->op = EJQ_OP_PLUS;
+			$$ = _r;
+		}
+	| Exp MINUS Exp {
+			dollarNode( Exp );
+			_r->lExp = $1;
+			_r->rExp = $3;
+			_r->op = EJQ_OP_MINUS;
+			$$ = _r;
+		}
+	| Exp STAR Exp {
+			dollarNode( Exp );
+			_r->lExp = $1;
+			_r->rExp = $3;
+			_r->op = EJQ_OP_STAR;
+			$$ = _r;
+		}
+	| Exp DIV Exp {
+			dollarNode( Exp );
+			_r->lExp = $1;
+			_r->rExp = $3;
+			_r->op = EJQ_OP_DIV;
+			$$ = _r;
+		}
+	| LP Exp RP {
+			$$ = $2;/* 括号不要啦 */
+		} 
+	| MINUS Exp %prec STAR {
+			dollarNode( Exp );
+			_r->lExp = $2;
+			_r->op = EJQ_OP_UNARY_MINUS;
+			$$ = _r;
+		}
+	| NOT Exp {
+			dollarNode( Exp );
+			_r->lExp = $2;
+			_r->op = EJQ_OP_UNARY_NOT;
+			$$ = _r;
+		}
+	| ID LP Args RP {
+			dollarNode( Exp );
+			_r->funcName = (char*)malloc(strlen(getLabel($1) + 5));
+			strcpy(_r->funcName, getLabel($1));
+			_r->args = $3;
+			_r->isFunc = True;
+			$$ = _r;
+		}
 	| ID LP error RP{
 		raise_line_error(charno - 1, charno, _E_COLOR_ERR);
 	}
-	| ID LP RP {$$ = newnode("ExpFUNC", $1);}
-	| Exp LB Exp RB {$$ = newnode("ExpARRAY", $1, $3);}
+	| ID LP RP {
+			dollarNode( Exp );
+			_r->funcName = (char*) malloc(strlen(getLabel($1) + 5));
+			strcpy(_r->funcName, getLabel($1));
+			_r->isFunc = True;
+			$$ = _r;
+		}
+	| Exp LB Exp RB {
+			dollarNode( Exp );
+			_r->lExp = $1;
+			_r->rExp = $3;
+			_r->op = EJQ_OP_ARRAY;
+			$$ = _r;
+		}
 	| Exp LB error RB {
 		raise_line_error(charno - 1, charno, _E_COLOR_ERR);
 	}
-	| Exp DOT ID {$$ = newnode("ExpSTRUCT", $1, $3);}
-	| ID {$$ = newnode("ExpID", $1);}
-	| INT {$$ = newnode("ExpINT", $1);}
-	| FLOAT {$$ = newnode("ExpFLOAT", $1);}
+	| Exp DOT ID {
+			dollarNode( Exp );
+			_r->lExp = $1;
+			_r->funcName = (char*) malloc(strlen(getLabel($3) + 5));
+			strcpy(_r->funcName, getLabel($3));
+			$$ = _r;
+		}
+	| ID {
+			dollarNode( Exp );
+			_r->funcName = (char*) malloc(strlen(getLabel($1)) + 5);
+			strcpy(_r->funcName, getLabel($1));
+			$$ = _r;
+		}
+	| INT {
+			dollarNode( Exp );
+			_r->isImm8 = EJQ_IMM8_INT;
+			_r->intVal = atoi(getLabel($1));
+			$$ = _r;
+		}
+	| FLOAT {
+			dollarNode( Exp );
+			_r->isImm8 = EJQ_IMM8_FLOAT;
+			_r->floatVal = atof(getLabel($1));
+			$$ = _r;
+		}
 	;
-Args : Exp COMMA Args {$$ = newnode("Args", $1, $3);}
-	 | Exp {$$ = newnode("Args", $1);}
+Args : Exp COMMA Args {
+			dollarNode( Args );
+			_r->exp = $1;
+			_r->next = $3;
+			$$ = _r;
+		}
+	 | Exp {
+			dollarNode( Args );
+			_r->exp = $1;
+			$$ = _r;
+		}
 	 ;
 %%
 #include "lexer.c"
