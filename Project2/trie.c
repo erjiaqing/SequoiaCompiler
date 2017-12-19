@@ -50,12 +50,8 @@ size_t __E_trie_new_node()
 	}
 	if (E_trie_node_used == E_trie_tot_node)
 	{
-		E_trie* E_new_trie_nodes = (E_trie*)malloc(sizeof(E_trie) * (E_trie_tot_node * 2));
-		// 要一块新的
-		memcpy(E_new_trie_nodes, E_trie_nodes, sizeof(E_trie) * (E_trie_tot_node));
-		// 把旧的搞到新的里面去
-		free(E_trie_nodes);
-		// 丢掉旧的
+		E_trie* E_new_trie_nodes = (E_trie*)realloc(E_trie_nodes, sizeof(E_trie) * (E_trie_tot_node * 2));
+		assert(E_new_trie_nodes);
 		E_trie_nodes = E_new_trie_nodes;
 		// 把新的当旧的
 		E_trie_tot_node *= 2;
@@ -85,13 +81,13 @@ size_t __E_trie_new_version()
 	// 版本池满了，扩大两倍
 	if (E_trie_current_version == E_trie_version_cap)
 	{
-		size_t* E_new_version_roots = (size_t*)malloc(sizeof(size_t) * (E_trie_version_cap * 2));
-		memcpy(E_new_version_roots, E_trie_roots, sizeof(size_t) * (E_trie_version_cap));
-		free(E_trie_roots);
+		size_t* E_new_version_roots = (size_t*)realloc(E_trie_roots, sizeof(size_t) * (E_trie_version_cap * 2));
+		assert(E_new_version_roots);
+		E_trie_roots = E_new_version_roots;
 		//--
-		size_t* E_new_version_state = (size_t*)malloc(sizeof(size_t) * (E_trie_version_cap * 2));
-		memcpy(E_new_version_state, E_trie_version_state, sizeof(size_t) * (E_trie_version_cap));
-		free(E_trie_version_state);
+		size_t* E_new_version_state = (size_t*)realloc(E_trie_version_state, sizeof(size_t) * (E_trie_version_cap * 2));
+		assert(E_new_version_state);
+		E_trie_version_state = E_new_version_state;
 		//--
 		E_trie_roots = E_new_version_roots;
 		E_trie_version_cap *= 2;
@@ -170,4 +166,5 @@ void E_trie_back_to_version(int version_id)
 	E_trie_current_version = version_id + 1;
 	E_trie_node_used = E_trie_version_state[version_id];
 }
+
 #endif

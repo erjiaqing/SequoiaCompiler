@@ -1,6 +1,13 @@
 #ifndef __EJQ_SYMBOL_C
 #define __EJQ_SYMBOL_C
 
+#define EJQ_SYMBOL_BASIC    (0x0)
+#define EJQ_SYMBOL_ABSTRACT (0x1)
+#define EJQ_SYMBOL_NORMAL   (0x2)
+#define EJQ_SYMBOL_ARRAY    (0x4)
+#define EJQ_SYMBOL_STRUCT   (0x8)
+#define EJQ_SYMBOL_FUNCTION (0x10)
+
 typedef struct E_symbol_item{
 	int type_uid; // 类型UID
 	char *name; // 全名
@@ -14,6 +21,7 @@ typedef struct E_symbol_item{
 	// 0x002 普通变量，由type_uid指定类别
 	// 0x004 数组
 	// 0x008 结构体
+	// 0x010 函数
 	size_t offset; // 对于抽象变量，需要指出它的偏移
 	size_t son_cnt; // 子孙数目，这个是针对结构体的
 	size_t* son; // 子节点，还是针对结构体的
@@ -23,6 +31,30 @@ typedef struct E_symbol_item{
 E_symbol_item* E_symbol_table = NULL;
 size_t E_symbol_table_alloc = 0;
 size_t E_symbol_table_cap = 0;
+
+size_t E_symbol_table_new()
+{
+	if (E_symbol_table == NULL)
+	{
+		E_symbol_table = malloc(sizeof(E_symbol_item));
+		E_symbol_table_alloc = 0;
+		E_symbol_table_cap = 1;
+	}
+	if (E_symbol_table_alloc == cap)
+	{
+		E_symbol_item* newMem = realloc(E_symbol_table, sizeof(E_symbol_item) * cap * 2);
+		assert(newMem);
+		E_symbol_tabel = newMem;
+		cap *= 2;
+	}
+	return E_symbol_table_alloc++;
+}
+
+void E_symbol_table_init()
+{
+	size_t intnode
+}
+
 // 符号表，符号表已用条目，符号表总条目
 // 符号表中第i项就是类型uid，预留2项(int,float)
 
