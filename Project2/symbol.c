@@ -40,19 +40,19 @@ size_t E_symbol_table_new()
 		E_symbol_table_alloc = 0;
 		E_symbol_table_cap = 1;
 	}
-	if (E_symbol_table_alloc == cap)
+	if (E_symbol_table_alloc == E_symbol_table_cap)
 	{
-		E_symbol_item* newMem = realloc(E_symbol_table, sizeof(E_symbol_item) * cap * 2);
+		E_symbol_item* newMem = realloc(E_symbol_table, sizeof(E_symbol_item) * E_symbol_table_cap * 2);
 		assert(newMem);
-		E_symbol_tabel = newMem;
-		cap *= 2;
+		E_symbol_table = newMem;
+		E_symbol_table_cap *= 2;
 	}
 	return E_symbol_table_alloc++;
 }
 
 void E_symbol_table_init()
 {
-	size_t intnode
+	size_t intnode;
 }
 
 // 符号表，符号表已用条目，符号表总条目

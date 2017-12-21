@@ -33,23 +33,19 @@ transdecl(Args);
 
 ///////////////////////
 
-transdecl(Program) {transcall(ExtDefList, _->programBody );}
-
-transdecl(ExtDefList)
+transdecl(Program)
 {
-	foreach(_, extdef, N(ExtDef))
-	{
-		transcall(ExtDef, extdef);
-	}
+	foreach( _->programBody, extdef, N(ExtDefList))
+		transcall(ExtDef, extdef->code );
 }
 
 transdecl(ExtDef)
 {
 	if (_->function) // function
 	{
-		sprintf(stderr, "function\n");
+		fprintf(stderr, "function\n");
 		int son_cnt = 0;
-		foreach ( _->function->varList , vlist , VarList ) son_cnt++;
+		foreach ( _->function->varList , vlist , N(VarList) ) son_cnt++;
 		// 计算函数参数个数
 		size_t func_type = E_trie_find(_->spec->typeName);
 		// 函数被定义了
@@ -75,7 +71,7 @@ transdecl(ExtDef)
 		E_symbol_table[func_symbol_item].son_cnt = son_cnt;
 		E_symbol_table[func_symbol_item].son = (size_t*)malloc(sizeof(size_t) * son_cnt);
 		int ti = 0;
-		foreach ( _->function->varList, vlist, VarList )
+		foreach ( _->function->varList, vlist, N(VarList) )
 		{
 			size_t func_arg_symbol = E_symbol_table_new();
 			E_symbol_table[func_symbol_item].son[ti] = func_arg_symbol;
@@ -100,7 +96,7 @@ transdecl(ExtDef)
 		}
 		// TODO: 处理包含结构体定义的情况
 		// 获取变量类型号
-		foreach ( _->dec, decList, ExtDecList )
+		foreach ( _->dec, decList, N(ExtDecList) )
 		{
 			// 单独处理每个变量
 			if (E_trie_find(decList->dec->varName))
@@ -138,26 +134,40 @@ transdecl_sizet(VarDec, size_t spec)
 
 transdecl_sizet(VarDimList, size_t spec)
 {
-	size_t thisdim = spec;
+	size_t thisdim_id = spec;
 	size_t thisid = E_symbol_table_new();
 	char buf[512];
 	if (_->next)
 	{
-		thisdim = transcall(_->next, spec);
-		sprintf(buf, "%s/a", E_symbol_table[thisdim].name);
+		thisdim_id = transcall(VarDimList, _->next, spec);
+		sprintf(buf, "%s/a", E_symbol_table[thisdim_id].name);
 	} else {
 		sprintf(buf, "%d/a", (int)spec);
 	}
-	E_symbol_table[thisid].type_uid = thisdim;
+	E_symbol_table[thisid].type_uid = thisdim_id;
 	E_symbol_table[thisid].name = (char *)malloc(strlen(buf) + 5);
 	for (size_t i = 0; buf[i]; i++)
 		E_symbol_table[thisid].name[i] = buf[i];
-	E_symbol_table[thisid].len = E_symbol_table[typeid].len * _->thisDim;
+	E_symbol_table[thisid].len = E_symbol_table[thisdim_id].len * _->thisDim;
 	E_symbol_table[thisid].is_abstract = 0x004;
 	E_symbol_table[thisid].offset = 0;
 	E_symbol_table[thisid].son_cnt = 0;
 	E_symbol_table[thisid].son = NULL;
 	return thisid;
+}
+
+transdecl(CompSt)
+{
+	// 声明区
+	foreach(_->defList, def, N(DefList))
+	{
+		transcall(Def, def->def);
+	}
+	// 计算区
+	foreach(_->stmtList, stmt, N(StmtList))
+	{
+		transcall(Stmt, stmt->statement);
+	}
 }
 
 

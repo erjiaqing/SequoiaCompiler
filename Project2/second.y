@@ -20,9 +20,12 @@ int legal = 1;
 
 int yylex();
 
+#include "symbol.c"
+#include "trie.c"
 #include "project1.h"
 #include "project2.h"
 #include "project2.2.h"
+#include "translate.c"
 
 // 遍历，内存漏就漏吧= =
 
