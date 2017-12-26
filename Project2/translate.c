@@ -274,7 +274,7 @@ transdecl(Exp, int needReturn, int ifTrue, int ifFalse)
 				int trueLabel = ifTrue ? ifTrue : ++totLab;
 				int B1True = ++totLab;
 				int B1False = falseLabel;
-				int lbal, rval;
+				int lval, rval;
 				if (needReturn)
 				{
 					assert(ifTrue == 0 && ifFalse == 0);
@@ -289,17 +289,119 @@ transdecl(Exp, int needReturn, int ifTrue, int ifFalse)
 				if (needReturn)
 				{
 					int afterLabel = ++totLab;
-					pritnf("LABEL l_%06d\n", trueLabel);
+					printf("LABEL l_%06d\n", trueLabel);
 					printf("t_%06d := #1\n", res);
 					printf("GOTO l_%06d\n", afterLabel);
 					printf("LABEL l_%06d\n", falseLabel);
 					printf("t_%06d := #0\n", res);
-					return res;
 				}
+				return res;
+				break;
+			}
+			case EJQ_OP_OR:
+			{
+				int falseLabel = ifFalse ? ifFalse : ++totLab;
+				int trueLabel = ifTrue ? ifTrue : ++totLab;
+				int B1True = trueLabel;
+				int B1False = ++totLab;
+				int lval, rval;
+				if (needReturn)
+				{
+					assert(ifTrue == 0 && ifFalse == 0);
+					// 和上面一样的断言
+				}
+				lval = transcall(Exp, _->lExp, False, B1True, B1False);
+				printf("LABEL l_%06d\n", B1False);
+				rval = transcall(Exp, _->rExp, False, trueLabel, falseLabel);
+				if (needReturn)
+				{
+					int afterLabel = ++totLab;
+					printf("LABEL l_%06d\n", trueLabel);
+					printf("t_%06d := #1\n", res);
+					printf("GOTO l_%06d\n", afterLabel);
+					printf("LABEL l_%06d\n", falseLabel);
+					printf("t_%06d := #0\n", res);
+				}
+				return res;
+				break;
+			}
+			case EJQ_OP_RELOP_LT:
+			case EJQ_OP_RELOP_LE:
+			case EJQ_OP_RELOP_EQ:
+			case EJQ_OP_RELOP_GE:
+			case EJQ_OP_RELOP_GT:
+			case EJQ_OP_RELOP_NE:
+			{
+				int lval, rval;
+				int trueLabel = ifTrue ? ifTrue : ++totLab;
+				int falseLabel = ifFalse ? ifFalse : ++totLab;
+				char op[3];
+				if (needReturn)
+				{
+					assert(ifTrue == 0 && ifFalse == 0);
+					// 同上
+				}
+				switch (_->op)
+				{
+					case EJQ_OP_RELOP_LT:
+						strcpy(op, "<");break;
+					case EJQ_OP_RELOP_LE:
+						strcpy(op, "<=");break;
+					case EJQ_OP_RELOP_EQ:
+						strcpy(op, "==");break;
+					case EJQ_OP_RELOP_GE:
+						strcpy(op, ">=");break;
+					case EJQ_OP_RELOP_GT:
+						strcpy(op, ">");break;
+					case EJQ_OP_RELOP_NE:
+						strcpy(op, "!=");break;
+					default:
+						assert(0);
+						//夭寿啦，代码出错啦
+				}
+				lval = transcall(Exp, _->lExp, True, 0, 0);
+				rval = transcall(Exp, _->rExp, True, 0, 0);
+				printf("IF t_%06d %s t_%06d GOTO l_%06d\n", lval, op, rval, trueLabel);
+				if (needReturn)
+				{
+					printf("t_%06d := #0", res);
+					printf("GOTO l_%06d\n", falseLabel);
+					printf("LABEL l_%06d\n", trueLabel);
+					printf("t_%06d := #1", res);
+					printf("LABEL l_%0d\n", falseLabel);
+				} else {
+					printf("GOTO l_%06d\n", falseLabel);
+				}
+				return res;
+				break;
+			}
+			case EJQ_OP_PLUS:
+			case EJQ_OP_MINUS:
+			case EJQ_OP_STAR:
+			case EJQ_OP_DIV:
+			{
+				int lval = transcall(Exp, _->lExp, True, 0, 0);
+				int rval = transcall(Exp, _->rExp, True, 0, 0);
+				switch (_->op)
+				{
+					case EJQ_OP_PLUS:
+						strcpy(op, "+");break;
+					case EJQ_OP_MINUS:
+						strcpy(op, "-");break;
+					case EJQ_OP_STAR:
+						strcpy(op, "*");break;
+					case EJQ_OP_DIV:
+						strcpy(op, "/");break;
+					default:
+						assert(0);
+						// 夭寿啦，代码又出错啦
+				}
+				printf("t_%06d := t_%06d %s t_%06d\n", res, lval, op, rval);
 				break;
 			}
 		}
 	}
+	return res;
 }
 
 #undef trans
