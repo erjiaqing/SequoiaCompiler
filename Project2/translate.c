@@ -28,8 +28,11 @@ transdecl(DefList);
 transdecl(Def);
 transdecl(DecList);
 transdecl(Dec);
-transdecl(Exp, int, int); // truelabel falselabel
+transdecl(Exp, int, int, int); // need return, truelabel falselabel
 transdecl(Args);
+
+int totTmp;
+int totLab;
 
 ///////////////////////
 
@@ -170,6 +173,128 @@ transdecl(CompSt)
 	}
 }
 
+transdecl(Stmt)
+{
+	if (_->isReturn)
+	{
+		// 有返回值，要把返回值return掉
+		// TODO: 类型检查
+		int returnTmp = transcall(Exp, _->expression, True, 0, 0);
+		// 需要返回值，没有跳转
+		printf("RETURN t_%06d\n", returnTmp);
+		// 这是第一句输出的话啊!
+	} else if (_->isWhile)
+	{
+		// while循环
+		int while_begin = ++totLab;
+		int while_end = ++totLab;
+		printf("LABEL l_%06d:\n", while_begin);
+		transcall(Exp, _->expression, False, 0, while_end);
+		transcall(Stmt, _->ifTrue);
+		printf("GOTO l_%06d\n", while_begin);
+		printf("LABEL l_%06d:\n", while_end);
+	} else if (_->ifTrue)
+	{
+		// 有true，不是while，那就是if了
+		int true_branch = ++totLab;
+		int after_if = ++totLab;
+		int false_branch = after_if;
+		if (_->ifFalse)
+		{
+			false_branch = ++totLab;
+		}
+		// 注意到如果没有假分支，那么假就跳到if结束
+		transcall(Exp, _->expression, False, true_branch, false_branch);
+		// 肯定有真分支
+		printf("LABEL l_%06d:\n", true_branch);
+		transcall(Stmt, _->ifTrue);
+		if (_->ifFalse)
+		{
+			// 处理假分支
+			// 这时候真分支刚刚执行完，需要跳走，避免执行假分支的内容
+			printf("GOTO l_%06d\n", after_if);
+			// 然后打出假分支的标号
+			printf("LABEL l_%06d:\n", false_branch);
+			transcall(Stmt, _->ifFalse);
+		}
+		// 最后打出if结束的标号
+		printf("LABEL l_%06d:\n", after_if);
+	} else if (_->compStatement)
+	{
+		// 谁这么无聊把一个普通的statement中间还加上大括号
+		// 好吧，我干过\_(O. O)~
+		transcall(CompSt, _->compStatement);
+	} else if (_->expression)
+	{
+		// 最后是普通的一条语句
+		// 终于到了普通的语句了
+		// 不要返回值，不跳
+		transcall(Exp, _->expression, False, 0, 0);
+		// 啊，这么简单的么？
+		// 没办法啊，Exp里面的信息量挺大的
+		// 突然发现控制流也不难啊
+	}
+}
+
+transdecl(Exp, int needReturn, int ifTrue, int ifFalse)
+{
+	int res = ++totTmp;
+	if (_->isImm8 == EJQ_IMM8_INT)
+	{
+		printf("t_%06d := #%d", res, _->intVal);
+		return res;
+	} else if (_->isImm8 == EJQ_IMM8_FLOAT)
+	{
+		printf("t_%06d := #%.20f", res, _->floatVal);
+		return res;
+	} else if (_->isFunc)
+	{
+		// 这是一个函数调用
+		foreach(_->args, arg, N(Args))
+			printf("PUSH t_%06d\n", transcall(Exp, arg->exp, True, 0, 0));
+		// 先这样，后面再改成找符号表
+		printf("t_%6d := CALL %s\n", res, _->funcName);
+		return res;
+	} else if (_->funcName)
+	{
+		// 这两个名字是一起的
+		// 不是函数名就是变量名
+		printf("t_%6d := %s\n", res, _->funcName);
+		return res;
+	} else {
+		// 就是普通的表达式啦
+		switch (_->op)
+		{
+			case EJQ_OP_ASSIGN:
+				printf("%s := t_%06d\n", _->lExp->funcName, transcall(Exp, _->rExp, True, 0, 0));
+				break;
+			case EJQ_OP_AND:
+			{
+				int falseLabel = ifFalse;
+				int endLabel = ifTrue;
+				if (!falseLabel) falseLabel = ++totLab;
+				if (!endLabel) endLabel = ++totLab;
+				int lval = transcall(Exp, _->lExp, True, 0, falseLabel);
+				int rval = transcall(Exp, _->rExp, True, ifTrue, falseLabel);
+				if (!ifTrue)
+				{
+					printf("t_%06d := 1\n", res);
+					printf("GOTO l_%06d:", endLabel);
+				}
+				if (!ifFalse)
+				{
+					printf("LABEL l_%06d\n", falseLabel);
+					printf("t_%06d := 0\n", res);
+				}
+				if (!ifTrue)
+				{
+					printf("LABEL l_%06d\n", endLabel);
+				}
+				break;
+			}
+		}
+	}
+}
 
 #undef trans
 #undef transdecl

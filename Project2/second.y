@@ -280,7 +280,15 @@ Stmt : Exp SEMI {
 	 | IF LP error RP {
 			raise_line_error(charno - 1, charno, _E_COLOR_ERR);
 		}
-	 | WHILE LP Exp RP Stmt {$$ = newnode("StmtWHILE", $3, $5);}
+	 | WHILE LP Exp RP Stmt {
+			dollarNode( Stmt );
+			_r->expression = $3;
+			_r->compStatement = NULL;
+			_r->isReturn = _r->isWhile = False;
+			_r->ifTrue = $5;
+			_r->ifFalse = NULL;
+			$$ = _r;
+		}
 	 | Exp error {
 			raise_line_error_4(charno, charno + 1, _E_COLOR_ERR, ";");
 		}
