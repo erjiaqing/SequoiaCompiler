@@ -270,25 +270,31 @@ transdecl(Exp, int needReturn, int ifTrue, int ifFalse)
 				break;
 			case EJQ_OP_AND:
 			{
-				int falseLabel = ifFalse;
-				int endLabel = ifTrue;
-				if (!falseLabel) falseLabel = ++totLab;
-				if (!endLabel) endLabel = ++totLab;
-				int lval = transcall(Exp, _->lExp, True, 0, falseLabel);
-				int rval = transcall(Exp, _->rExp, True, ifTrue, falseLabel);
-				if (!ifTrue)
+				int falseLabel = ifFalse ? ifFalse : ++totLab;
+				int trueLabel = ifTrue ? ifTrue : ++totLab;
+				int B1True = ++totLab;
+				int B1False = falseLabel;
+				int lbal, rval;
+				if (needReturn)
 				{
-					printf("t_%06d := 1\n", res);
-					printf("GOTO l_%06d:", endLabel);
+					assert(ifTrue == 0 && ifFalse == 0);
+					// 这里加个断言
 				}
-				if (!ifFalse)
+				lval = transcall(Exp, _->lExp, False, B1True, falseLabel);
+				printf("LABEL l_%06d\n", B1True);
+				rval = transcall(Exp, _->rExp, False, trueLabel, falseLabel);
+				// 如果需要返回值，那么一定是在计算的时候，不可能是在if或者while里面
+				// 这样的话，ifTrue和ifFalse就不会给出
+				// 换而言之，trueLabel和falseLabel一定是局部的标签
+				if (needReturn)
 				{
+					int afterLabel = ++totLab;
+					pritnf("LABEL l_%06d\n", trueLabel);
+					printf("t_%06d := #1\n", res);
+					printf("GOTO l_%06d\n", afterLabel);
 					printf("LABEL l_%06d\n", falseLabel);
-					printf("t_%06d := 0\n", res);
-				}
-				if (!ifTrue)
-				{
-					printf("LABEL l_%06d\n", endLabel);
+					printf("t_%06d := #0\n", res);
+					return res;
 				}
 				break;
 			}
