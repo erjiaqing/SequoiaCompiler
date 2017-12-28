@@ -115,14 +115,14 @@ void __E_trie_finalize_new_version()
 
 void __E_trie_dump_tree(int node_id, int lay)
 {
-	for (int j = 0; j < lay; j++) fprintf(stderr, "  ");
-	fprintf(stderr, "node %d - [%c]\n", node_id, " *"[!!E_trie_nodes[node_id].flag]);
+	for (int j = 0; j < lay; j++) debug("  ");
+	debug("node %d - [%c]\n", node_id, " *"[!!E_trie_nodes[node_id].flag]);
 	for (int i = 0; i < 256; i++)
 	{
 		if (E_trie_nodes[node_id].nxt[i])
 		{
-			for (int j = 0; j < lay; j++) fprintf(stderr, "  ");
-			fprintf(stderr, "%c -> %d\n", i, E_trie_nodes[node_id].nxt[i]);
+			for (int j = 0; j < lay; j++) debug("  ");
+			debug("%c -> %d\n", i, E_trie_nodes[node_id].nxt[i]);
 			__E_trie_dump_tree(E_trie_nodes[node_id].nxt[i], lay + 1);
 		}
 	}
@@ -132,12 +132,12 @@ void __E_trie_dump_tree(int node_id, int lay)
 int __E_trie_insert(char *s, int item_id)
 {
 	int version = __E_trie_new_version();
-	fprintf(stderr, "current version = %d\n", version);
+	debug("current version = %d\n", version);
 	size_t rt = E_trie_roots[version];
-	fprintf(stderr, "now root = %zu\n", rt);
+	debug("now root = %zu\n", rt);
 	for (int i = 0; s[i]; i++)
 	{
-		fprintf(stderr, "[%c]", s[i]);
+		debug("[%c]", s[i]);
 		if (E_trie_nodes[rt].nxt[s[i]])
 		{
 			E_trie_nodes[rt].nxt[s[i]] = __E_trie_fork_node(E_trie_nodes[rt].nxt[s[i]]);
@@ -150,7 +150,7 @@ int __E_trie_insert(char *s, int item_id)
 		}
 		rt = E_trie_nodes[rt].nxt[s[i]];
 	}
-	fprintf(stderr, "--> flag = %d\n", item_id);
+	debug("--> flag = %d\n", item_id);
 	E_trie_nodes[rt].flag = item_id;
 	__E_trie_finalize_new_version();
 	return 0;
@@ -161,29 +161,29 @@ int __E_trie_insert(char *s, int item_id)
 int E_trie_find(char *s)
 {
 	if (!E_trie_current_version) return 0;
-	fprintf(stderr, "now try to find |%s| in version \n", s);
+	debug("now try to find |%s| in version \n", s);
 	// 如果没有创建过版本，所以就直接返回不存在好了
 	size_t rt = E_trie_roots[E_trie_get_current_version()];
 	__E_trie_dump_tree(rt, 0);
 	for (int i = 0; s[i]; i++)
 	{
-		fprintf(stderr, "[%c]", s[i]);
+		debug("[%c]", s[i]);
 		if (E_trie_nodes[rt].nxt[s[i]])
 			rt = E_trie_nodes[rt].nxt[s[i]];
 		else
 		{
-			fprintf(stderr, "not found!\n");
+			debug("not found!\n");
 			return 0;
 		}
 	}
-	fprintf(stderr, "->> %d\n", E_trie_nodes[rt].flag);
+	debug("->> %d\n", E_trie_nodes[rt].flag);
 	return E_trie_nodes[rt].flag;
 }
 
 // 但是要先检查一个
 int E_trie_insert(char *s, int item_id)
 {
-	fprintf(stderr, "insert to trie: |%s| with item_id = %d\n", s, item_id);
+	debug("insert to trie: |%s| with item_id = %d\n", s, item_id);
 	if (E_trie_find(s)) return 1;
 	return __E_trie_insert(s, item_id);
 }

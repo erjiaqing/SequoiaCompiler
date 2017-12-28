@@ -19,4 +19,15 @@ const char* write_color(const int i) {
 	return debug_color_begin[4];
 }
 
+#ifdef _DEBUG
+	#define debug(...) fprintf(stderr, "%s", debug_color_begin[2]),fprintf(stderr, ##__VA_ARGS__),fprintf(stderr, "%s", "\033[0m")
+#else
+	#define debug(...) {/* nothing */}
+#endif
+
+#define error(...) fprintf(stderr, "%s", debug_color_begin[0]), fprintf(stderr, ##__VA_ARGS__), fprintf(stderr, "%s\n", "\033[0m")
+
+#define ce(...) fprintf(stderr, "%s[CE]\033[0m", debug_color_begin[0]), fprintf(stderr, ##__VA_ARGS__), fprintf(stderr, "\n")
+#define output(...) fprintf(result_writer, ##__VA_ARGS__)
+
 #endif

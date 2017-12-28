@@ -40,7 +40,7 @@ int totLab;
 
 transdecl(Program)
 {
-	printf("FUNCTION read:\n"
+	output("FUNCTION read:\n"
 			"READ _tread\n"
 			"RETURN _tread\n\n"
 		   "FUNCTION write:\n"
@@ -55,7 +55,6 @@ transdecl(ExtDef)
 {
 	if (_->function) // function
 	{
-		fprintf(stderr, "function\n");
 		int son_cnt = 0;
 		foreach ( _->function->varList , vlist , N(VarList) ) son_cnt++;
 		// 计算函数参数个数
@@ -63,13 +62,13 @@ transdecl(ExtDef)
 		// 函数被定义了
 		if (E_trie_find(_->function->name))
 		{
-			fprintf(stderr, "Redeclare of function %s\n", _->function->name);
+			ce("duplicate identify ``%s'' in current namespace\n", _->function->name);
 			return;
 		}
 		// TODO: 处理包含结构体定义的情况
 		if (!func_type)
 		{
-			fprintf(stderr, "Unknown type %s (got func_type = %zu)\n", _->spec->typeName, func_type);
+			ce("unknown type ``%s''\n", _->spec->typeName);
 			return;
 		}
 		size_t func_symbol_item = E_symbol_table_new();
@@ -84,7 +83,7 @@ transdecl(ExtDef)
 		E_symbol_table[func_symbol_item].son = (size_t*)malloc(sizeof(size_t) * son_cnt);
 		int ti = 0;
 		// 打印函数首部
-		printf("FUNCTION %s\n", _->function->name);
+		output("FUNCTION %s:\n", _->function->name);
 		foreach ( _->function->varList, vlist, N(VarList) )
 		{
 			int func_arg_symbol = E_symbol_table_new();
@@ -93,32 +92,32 @@ transdecl(ExtDef)
 			E_trie_insert(vlist->thisParam->name->varName, func_arg_symbol);
 			if (!E_symbol_table[func_arg_symbol].type_uid)
 			{
-				fprintf(stderr, "Unknown type %s\n", vlist->thisParam->type->typeName);
+				ce("unknown type %s\n", vlist->thisParam->type->typeName);
 				return;
 			}
 			// 获取参数
-			printf("PARAM v_%06d\n", func_arg_symbol);
+			output("PARAM v%d\n", func_arg_symbol);
 		}
 		// 获取参数表
 		// 假设参数类型全部为int
 		// 翻译函数体
 		transcall(CompSt, _->functionBody);
 		// 恢复trie树版本
-		/// E_trie_back_to_version(current_version);
+		E_trie_back_to_version(current_version);
 		if (func_type == 1)
 		{
-			printf("RETURN #0\n");
+			output("RETURN #0\n");
 		} else if (func_type == 2)
 		{
-			printf("RETURN #0.0\n");
+			output("RETURN #0.0\n");
 		}
-		printf("\n");
+		output("\n");
 	} else // variables
 	{
 		size_t vari_type = E_trie_find(_->spec->typeName);
 		if (!vari_type)
 		{
-			fprintf(stderr, "Unknown type %s (got vari_type = %zu)\n", _->spec->typeName, vari_type);
+			ce("unknown type %s\n", _->spec->typeName);
 			return;
 		}
 		// TODO: 处理包含结构体定义的情况
@@ -130,7 +129,7 @@ transdecl(ExtDef)
 			{
 				// 可持久化Trie树
 				// 这是全局变量，所以直接查询当前的版本有没有定义就好了
-				fprintf(stderr, "Redeclare of %s\n", decList->dec->varName);
+				ce("redeclare of %s\n", decList->dec->varName);
 				continue;
 			}
 			// 计算这个变量
@@ -148,11 +147,10 @@ transdecl(Def)
 		size_t vari_type = E_trie_find(_->type->typeName);
 		if (E_trie_find(decList->dec->var->varName))
 		{
-			fprintf(stderr, "Redeclare of %s\n", decList->dec->var->varName);
+			ce("redeclare of %s\n", decList->dec->var->varName);
 			continue;
 		}
 		size_t id = transcall(VarDec, decList->dec->var, vari_type);
-		fprintf(stderr, "declare of ``%s''\n", decList->dec->var->varName);
 		E_trie_insert(decList->dec->var->varName, id);
 	}
 }
@@ -221,18 +219,18 @@ transdecl(Stmt)
 		// TODO: 类型检查
 		int returnTmp = transcall(Exp, _->expression, True, 0, 0);
 		// 需要返回值，没有跳转
-		printf("RETURN t_%06d\n", returnTmp);
+		output("RETURN t%d\n", returnTmp);
 		// 这是第一句输出的话啊!
 	} else if (_->isWhile)
 	{
 		// while循环
 		int while_begin = ++totLab;
 		int while_end = ++totLab;
-		printf("LABEL l_%06d:\n", while_begin);
+		output("LABEL l%d:\n", while_begin);
 		transcall(Exp, _->expression, False, 0, while_end);
 		transcall(Stmt, _->ifTrue);
-		printf("GOTO l_%06d\n", while_begin);
-		printf("LABEL l_%06d:\n", while_end);
+		output("GOTO l%d\n", while_begin);
+		output("LABEL l%d:\n", while_end);
 	} else if (_->ifTrue)
 	{
 		// 有true，不是while，那就是if了
@@ -246,19 +244,19 @@ transdecl(Stmt)
 		// 注意到如果没有假分支，那么假就跳到if结束
 		transcall(Exp, _->expression, False, true_branch, false_branch);
 		// 肯定有真分支
-		printf("LABEL l_%06d:\n", true_branch);
+		output("LABEL l%d:\n", true_branch);
 		transcall(Stmt, _->ifTrue);
 		if (_->ifFalse)
 		{
 			// 处理假分支
 			// 这时候真分支刚刚执行完，需要跳走，避免执行假分支的内容
-			printf("GOTO l_%06d\n", after_if);
+			output("GOTO l%d\n", after_if);
 			// 然后打出假分支的标号
-			printf("LABEL l_%06d:\n", false_branch);
+			output("LABEL l%d:\n", false_branch);
 			transcall(Stmt, _->ifFalse);
 		}
 		// 最后打出if结束的标号
-		printf("LABEL l_%06d:\n", after_if);
+		output("LABEL l%d:\n", after_if);
 	} else if (_->compStatement)
 	{
 		// 谁这么无聊把一个普通的statement中间还加上大括号
@@ -281,32 +279,42 @@ transdecl_sizet(Exp, int needReturn, int ifTrue, int ifFalse)
 	int res = ++totTmp;
 	if (_->isImm8 == EJQ_IMM8_INT)
 	{
-		printf("t_%06d := #%d\n", res, _->intVal);
+		output("t%d := #%d\n", res, _->intVal);
 		return res;
 	} else if (_->isImm8 == EJQ_IMM8_FLOAT)
 	{
-		printf("t_%06d := #%.20f\n", res, _->floatVal);
+		output("t%d := #%.20f\n", res, _->floatVal);
 		return res;
 	} else if (_->isFunc)
 	{
+		// 检查函数是否存在
+		int func_type = E_trie_find(_->funcName);
+		int func_args = E_symbol_table[func_type].son_cnt;
+		if (!func_type || E_symbol_table[func_type].is_abstract != EJQ_SYMBOL_FUNCTION)
+		{
+			ce("function ``%s'' not found", _->funcName);
+			return res;
+		}
 		// 这是一个函数调用
 		foreach(_->args, arg, N(Args))
-			printf("PUSH t_%06zu\n", transcall(Exp, arg->exp, True, 0, 0));
+		{
+			output("PUSH t%zu\n", transcall(Exp, arg->exp, True, 0, 0));
+		}
 		// 先这样，后面再改成找符号表
-		printf("t_%06d := CALL %s\n", res, _->funcName);
+		output("t%d := CALL %s\n", res, _->funcName);
 		return res;
 	} else if (_->funcName)
 	{
 		// 这两个名字是一起的
 		// 不是函数名就是变量名
-		fprintf(stderr, "find ``%s'' in trie\n", _->funcName);
+		debug("find ``%s'' in trie\n", _->funcName);
 		int varName = E_trie_find(_->funcName);
 		if (!varName)
 		{
-			fprintf(stderr, "undefined variable ``%s''\n", _->funcName);
+			ce("undefined variable ``%s''\n", _->funcName);
 			return res;
 		}
-		printf("t_%06d := v_%06d\n", res, varName);
+		output("t%d := v%d\n", res, varName);
 		return res;
 	} else {
 		// 就是普通的表达式啦
@@ -317,10 +325,10 @@ transdecl_sizet(Exp, int needReturn, int ifTrue, int ifFalse)
 				int leftName = E_trie_find(_->lExp->funcName);
 				if (!leftName)
 				{
-					fprintf(stderr, "undefined variable ``%s''\n", _->lExp->funcName);
+					ce("undefined variable ``%s''\n", _->lExp->funcName);
 					return res;
 				}
-				printf("v_%06d := t_%06zu\n", leftName, transcall(Exp, _->rExp, True, 0, 0));
+				output("v%d := t%zu\n", leftName, transcall(Exp, _->rExp, True, 0, 0));
 				break;
 			}
 			case EJQ_OP_AND:
@@ -336,7 +344,7 @@ transdecl_sizet(Exp, int needReturn, int ifTrue, int ifFalse)
 					// 这里加个断言
 				}
 				lval = transcall(Exp, _->lExp, False, B1True, falseLabel);
-				printf("LABEL l_%06d\n", B1True);
+				output("LABEL l%d\n", B1True);
 				rval = transcall(Exp, _->rExp, False, trueLabel, falseLabel);
 				// 如果需要返回值，那么一定是在计算的时候，不可能是在if或者while里面
 				// 这样的话，ifTrue和ifFalse就不会给出
@@ -344,11 +352,12 @@ transdecl_sizet(Exp, int needReturn, int ifTrue, int ifFalse)
 				if (needReturn)
 				{
 					int afterLabel = ++totLab;
-					printf("LABEL l_%06d\n", trueLabel);
-					printf("t_%06d := #1\n", res);
-					printf("GOTO l_%06d\n", afterLabel);
-					printf("LABEL l_%06d\n", falseLabel);
-					printf("t_%06d := #0\n", res);
+					output("LABEL l%d:\n", trueLabel);
+					output("t%d := #1\n", res);
+					output("GOTO l%d\n", afterLabel);
+					output("LABEL l%d:\n", falseLabel);
+					output("t_%d := #0\n", res);
+					output("LABEL l%d:\n", afterLabel);
 				}
 				return res;
 				break;
@@ -366,16 +375,17 @@ transdecl_sizet(Exp, int needReturn, int ifTrue, int ifFalse)
 					// 和上面一样的断言
 				}
 				lval = transcall(Exp, _->lExp, False, B1True, B1False);
-				printf("LABEL l_%06d\n", B1False);
+				output("LABEL l%d:\n", B1False);
 				rval = transcall(Exp, _->rExp, False, trueLabel, falseLabel);
 				if (needReturn)
 				{
 					int afterLabel = ++totLab;
-					printf("LABEL l_%06d\n", trueLabel);
-					printf("t_%06d := #1\n", res);
-					printf("GOTO l_%06d\n", afterLabel);
-					printf("LABEL l_%06d\n", falseLabel);
-					printf("t_%06d := #0\n", res);
+					output("LABEL l%d:\n", trueLabel);
+					output("t%d := #1\n", res);
+					output("GOTO l%d\n", afterLabel);
+					output("LABEL l%d:\n", falseLabel);
+					output("t%d := #0\n", res);
+					output("LABEL l%d:\n", afterLabel);
 				}
 				return res;
 				break;
@@ -416,16 +426,16 @@ transdecl_sizet(Exp, int needReturn, int ifTrue, int ifFalse)
 				}
 				lval = transcall(Exp, _->lExp, True, 0, 0);
 				rval = transcall(Exp, _->rExp, True, 0, 0);
-				printf("IF t_%06d %s t_%06d GOTO l_%06d\n", lval, op, rval, trueLabel);
+				output("IF t%d %s t%d GOTO l%d\n", lval, op, rval, trueLabel);
 				if (needReturn)
 				{
-					printf("t_%06d := #0", res);
-					printf("GOTO l_%06d\n", falseLabel);
-					printf("LABEL l_%06d\n", trueLabel);
-					printf("t_%06d := #1", res);
-					printf("LABEL l_%0d\n", falseLabel);
+					output("t%d := #0", res);
+					output("GOTO l%d\n", falseLabel);
+					output("LABEL l%d\n", trueLabel);
+					output("t_%06d := #1", res);
+					output("LABEL l%d\n", falseLabel);
 				} else {
-					printf("GOTO l_%06d\n", falseLabel);
+					output("GOTO l%d\n", falseLabel);
 				}
 				return res;
 				break;
@@ -452,30 +462,30 @@ transdecl_sizet(Exp, int needReturn, int ifTrue, int ifFalse)
 						assert(0);
 						// 夭寿啦，代码又出错啦
 				}
-				printf("t_%06d := t_%06d %s t_%06d\n", res, lval, op, rval);
+				output("t%d := t%d %s t%d\n", res, lval, op, rval);
 				break;
 			}
 			case EJQ_OP_UNARY_MINUS:
 			{
 				int lval = transcall(Exp, _->lExp, True, 0, 0);
-				printf("t_%06d := #0 - t_%06d\n", res, lval);
+				output("t%d := #0 - t%d\n", res, lval);
 				break;
 			}
 			default:
 			{
-				fprintf(stderr, "未实现\n");
+				error("未实现\n");
 				assert(0);
 			}
 		}
 	}
-	if (ifTrue) printf("IF t_%06d != #1 GOTO l_%06d\n", res, ifTrue);
-	if (ifFalse) printf("IF t_%06d == #0 GOTO l_%06d\n", res, ifFalse);
+	if (ifTrue) output("IF t%d != #1 GOTO l%d\n", res, ifTrue);
+	if (ifFalse) output("IF t%d == #0 GOTO l%d\n", res, ifFalse);
 	return res;
 }
 
 transdecl(Args)
 {
-	fprintf(stderr, "未实现\n");
+	error("This function (%s) should never be called\n", __func__);
 	assert(0);
 }
 

@@ -13,19 +13,7 @@ typedef struct node* node_star;
 int isLabel(node_star a, const char *b)
 {
 	char *aa = a->label;
-	fprintf(stderr, "L a = |%s|", aa);
-	fprintf(stderr, "  /  L b = |%s|\n", b);
 	return strcmp(aa, b) == 0;
-	/*
-	while (aa && bb) {
-		if (*aa != *bb)
-		{
-			fprintf(stderr, "%d != %d\n", *aa, *bb);
-			return 0;
-		}
-		aa++;bb++;
-	}
-	return *(aa) == *(bb);*/
 }
 
 char* getLabel(node_star a)
