@@ -2,6 +2,7 @@
 #define __EJQ_SYMBOL_C
 
 #include <assert.h>
+#include "trie.c"
 
 #define EJQ_SYMBOL_BASIC    (0x0)
 #define EJQ_SYMBOL_ABSTRACT (0x1)
@@ -54,7 +55,17 @@ size_t E_symbol_table_new()
 
 void E_symbol_table_init()
 {
-	size_t intnode;
+	E_symbol_table_new();
+	size_t intnode = E_symbol_table_new();
+	E_symbol_table[intnode].len = 4;
+	E_symbol_table[intnode].name = (char *)malloc(strlen("int") + 2);
+	strcpy(E_symbol_table[intnode].name, "int");
+	size_t floatnode = E_symbol_table_new();
+	E_symbol_table[floatnode].len = 4;
+	E_symbol_table[floatnode].name = (char *)malloc(strlen("float") + 2);
+	strcpy(E_symbol_table[intnode].name, "float");
+	E_trie_insert("int", intnode);
+	E_trie_insert("float", floatnode);
 }
 
 // 符号表，符号表已用条目，符号表总条目

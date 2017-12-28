@@ -119,6 +119,7 @@ int __E_trie_insert(char *s, int item_id)
 	size_t rt = __E_trie_new_version();
 	for (int i = 0; s[i]; i++)
 	{
+		fprintf(stderr, "[%c]", s[i]);
 		if (E_trie_nodes[rt].nxt[s[i]])
 		{
 			E_trie_nodes[rt].nxt[s[i]] = __E_trie_fork_node(E_trie_nodes[rt].nxt[s[i]]);
@@ -131,6 +132,7 @@ int __E_trie_insert(char *s, int item_id)
 		}
 		rt = E_trie_nodes[rt].nxt[s[i]];
 	}
+	fprintf(stderr, "--> flag = %d\n", item_id);
 	E_trie_nodes[rt].flag = item_id;
 	__E_trie_finalize_new_version();
 	return 0;
@@ -141,6 +143,7 @@ int __E_trie_insert(char *s, int item_id)
 int E_trie_find(char *s)
 {
 	if (!E_trie_current_version) return 0;
+	fprintf(stderr, "now try to find |%s|\n", s);
 	// 如果没有创建过版本，所以就直接返回不存在好了
 	size_t rt = E_trie_roots[E_trie_get_current_version()];
 	for (int i = 0; s[i]; i++)
@@ -156,6 +159,7 @@ int E_trie_find(char *s)
 // 但是要先检查一个
 int E_trie_insert(char *s, int item_id)
 {
+	fprintf(stderr, "insert to trie: |%s| with item_id = %d\n", s, item_id);
 	if (E_trie_find(s)) return 1;
 	return __E_trie_insert(s, item_id);
 }

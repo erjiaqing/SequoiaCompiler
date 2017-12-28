@@ -26,7 +26,7 @@ ANYWORD_INCLUDE_NEWLINE ((.|\n)*)
 }
 {TYPE} {
     char buf[1024];
-    sprintf(buf, "TYPE %s", yytext);
+    sprintf(buf, "%s", yytext);
     yylval = nnewnode(buf, lineno, charno, lineno, charno + strlen(yytext));
     charno += strlen(yytext);
     return TYPE;

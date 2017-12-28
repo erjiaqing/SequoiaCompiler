@@ -62,7 +62,7 @@ transdecl(ExtDef)
 		// TODO: 处理包含结构体定义的情况
 		if (!func_type)
 		{
-			fprintf(stderr, "Unknown type %s\n", _->spec->typeName);
+			fprintf(stderr, "Unknown type %s (got func_type = %zu)\n", _->spec->typeName, func_type);
 			return;
 		}
 		size_t func_symbol_item = E_symbol_table_new();
@@ -87,6 +87,7 @@ transdecl(ExtDef)
 				return;
 			}
 		}
+		printf("FUNCTION %s\n", _->function->name);
 		// 翻译函数体
 		transcall(CompSt, _->functionBody);
 		// 恢复trie树版本
@@ -96,7 +97,7 @@ transdecl(ExtDef)
 		size_t vari_type = E_trie_find(_->spec->typeName);
 		if (!vari_type)
 		{
-			fprintf(stderr, "Unknown type %s\n", _->spec->typeName);
+			fprintf(stderr, "Unknown type %s (got vari_type = %zu)\n", _->spec->typeName, vari_type);
 			return;
 		}
 		// TODO: 处理包含结构体定义的情况
@@ -258,11 +259,11 @@ transdecl_sizet(Exp, int needReturn, int ifTrue, int ifFalse)
 	int res = ++totTmp;
 	if (_->isImm8 == EJQ_IMM8_INT)
 	{
-		printf("t_%06d := #%d", res, _->intVal);
+		printf("t_%06d := #%d\n", res, _->intVal);
 		return res;
 	} else if (_->isImm8 == EJQ_IMM8_FLOAT)
 	{
-		printf("t_%06d := #%.20f", res, _->floatVal);
+		printf("t_%06d := #%.20f\n", res, _->floatVal);
 		return res;
 	} else if (_->isFunc)
 	{
@@ -270,13 +271,13 @@ transdecl_sizet(Exp, int needReturn, int ifTrue, int ifFalse)
 		foreach(_->args, arg, N(Args))
 			printf("PUSH t_%06zu\n", transcall(Exp, arg->exp, True, 0, 0));
 		// 先这样，后面再改成找符号表
-		printf("t_%6d := CALL %s\n", res, _->funcName);
+		printf("t_%06d := CALL %s\n", res, _->funcName);
 		return res;
 	} else if (_->funcName)
 	{
 		// 这两个名字是一起的
 		// 不是函数名就是变量名
-		printf("t_%6d := %s\n", res, _->funcName);
+		printf("t_%06d := %s\n", res, _->funcName);
 		return res;
 	} else {
 		// 就是普通的表达式啦

@@ -374,7 +374,7 @@ Exp : Exp ASSIGNOP Exp {
 			else if (isLabel($2, ">"))  _r->op = EJQ_OP_RELOP_GT;
 			else if (isLabel($2, "!=")) _r->op = EJQ_OP_RELOP_NE;
 			else {
-				fprintf(stderr, "Bug, undefined relop!");
+				fprintf(stderr, "Bug, undefined relop!\n");
 				exit(-1);
 			}
 			$$ = _r;
@@ -493,6 +493,7 @@ Args : Exp COMMA Args {
 
 int main(int argc, char **argv)
 {
+	E_symbol_table_init();
 	if (argc >= 2)
 	{
 		yyin = fopen(argv[1], "r");
