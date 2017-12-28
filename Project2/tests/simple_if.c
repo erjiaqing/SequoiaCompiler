@@ -1,5 +1,6 @@
 int main()
 {
+	int x, y;
 	x = read();
 	if (x < 0)
 	{

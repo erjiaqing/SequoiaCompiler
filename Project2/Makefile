@@ -4,7 +4,7 @@ all: y.tab.c lexer.c extend.h node.c project1.h project2.h
 	$(info 'ejq_cc' is parser)
 debug: y.tab.c lexer.c extend.h node.c
 	$(info Building 'ejq_cc' with DEBUG...)
-	gcc y.tab.c -ly -ll -o ejq_cc -D_DEBUG -std=gnu99
+	gcc y.tab.c -ly -ll -o ejq_cc -g -D_DEBUG -std=gnu99
 y.tab.c: second.y
 	$(info Building second.y -> y.tab.c...)
 	yacc -v second.y

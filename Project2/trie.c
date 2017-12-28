@@ -57,7 +57,7 @@ size_t __E_trie_new_node()
 		E_trie_tot_node *= 2;
 		// 但是容量变成新的
 	}
-	memset(E_trie_nodes + E_trie_node_used, 0, sizeof(E_trie));
+	memset(&E_trie_nodes[E_trie_node_used], 0, sizeof(E_trie_nodes[E_trie_node_used]));
 	return E_trie_node_used++;
 }
 
@@ -113,10 +113,28 @@ void __E_trie_finalize_new_version()
 	E_trie_version_state[E_trie_get_current_version()] = E_trie_tot_node;
 }
 
+void __E_trie_dump_tree(int node_id, int lay)
+{
+	for (int j = 0; j < lay; j++) fprintf(stderr, "  ");
+	fprintf(stderr, "node %d - [%c]\n", node_id, " *"[!!E_trie_nodes[node_id].flag]);
+	for (int i = 0; i < 256; i++)
+	{
+		if (E_trie_nodes[node_id].nxt[i])
+		{
+			for (int j = 0; j < lay; j++) fprintf(stderr, "  ");
+			fprintf(stderr, "%c -> %d\n", i, E_trie_nodes[node_id].nxt[i]);
+			__E_trie_dump_tree(E_trie_nodes[node_id].nxt[i], lay + 1);
+		}
+	}
+}
+
 // 往字典树中插入一个单词，对应的语法结构编号是item_id
 int __E_trie_insert(char *s, int item_id)
 {
-	size_t rt = __E_trie_new_version();
+	int version = __E_trie_new_version();
+	fprintf(stderr, "current version = %d\n", version);
+	size_t rt = E_trie_roots[version];
+	fprintf(stderr, "now root = %zu\n", rt);
 	for (int i = 0; s[i]; i++)
 	{
 		fprintf(stderr, "[%c]", s[i]);
@@ -143,16 +161,22 @@ int __E_trie_insert(char *s, int item_id)
 int E_trie_find(char *s)
 {
 	if (!E_trie_current_version) return 0;
-	fprintf(stderr, "now try to find |%s|\n", s);
+	fprintf(stderr, "now try to find |%s| in version \n", s);
 	// 如果没有创建过版本，所以就直接返回不存在好了
 	size_t rt = E_trie_roots[E_trie_get_current_version()];
+	__E_trie_dump_tree(rt, 0);
 	for (int i = 0; s[i]; i++)
 	{
+		fprintf(stderr, "[%c]", s[i]);
 		if (E_trie_nodes[rt].nxt[s[i]])
 			rt = E_trie_nodes[rt].nxt[s[i]];
 		else
+		{
+			fprintf(stderr, "not found!\n");
 			return 0;
+		}
 	}
+	fprintf(stderr, "->> %d\n", E_trie_nodes[rt].flag);
 	return E_trie_nodes[rt].flag;
 }
 

@@ -40,6 +40,13 @@ int totLab;
 
 transdecl(Program)
 {
+	printf("FUNCTION read:\n"
+			"READ _tread\n"
+			"RETURN _tread\n\n"
+		   "FUNCTION write:\n"
+		    "PARAM _twrite\n"
+			"WRITE _twrite\n"
+			"RETURN #1\n\n");
 	foreach( _->programBody, extdef, N(ExtDefList))
 		transcall(ExtDef, extdef->code );
 }
@@ -76,22 +83,36 @@ transdecl(ExtDef)
 		E_symbol_table[func_symbol_item].son_cnt = son_cnt;
 		E_symbol_table[func_symbol_item].son = (size_t*)malloc(sizeof(size_t) * son_cnt);
 		int ti = 0;
+		// 打印函数首部
+		printf("FUNCTION %s\n", _->function->name);
 		foreach ( _->function->varList, vlist, N(VarList) )
 		{
-			size_t func_arg_symbol = E_symbol_table_new();
+			int func_arg_symbol = E_symbol_table_new();
 			E_symbol_table[func_symbol_item].son[ti] = func_arg_symbol;
 			E_symbol_table[func_arg_symbol].type_uid = E_trie_find(vlist->thisParam->type->typeName);
+			E_trie_insert(vlist->thisParam->name->varName, func_arg_symbol);
 			if (!E_symbol_table[func_arg_symbol].type_uid)
 			{
 				fprintf(stderr, "Unknown type %s\n", vlist->thisParam->type->typeName);
 				return;
 			}
+			// 获取参数
+			printf("PARAM v_%06d\n", func_arg_symbol);
 		}
-		printf("FUNCTION %s\n", _->function->name);
+		// 获取参数表
+		// 假设参数类型全部为int
 		// 翻译函数体
 		transcall(CompSt, _->functionBody);
 		// 恢复trie树版本
-		E_trie_back_to_version(current_version);
+		/// E_trie_back_to_version(current_version);
+		if (func_type == 1)
+		{
+			printf("RETURN #0\n");
+		} else if (func_type == 2)
+		{
+			printf("RETURN #0.0\n");
+		}
+		printf("\n");
 	} else // variables
 	{
 		size_t vari_type = E_trie_find(_->spec->typeName);
@@ -131,6 +152,7 @@ transdecl(Def)
 			continue;
 		}
 		size_t id = transcall(VarDec, decList->dec->var, vari_type);
+		fprintf(stderr, "declare of ``%s''\n", decList->dec->var->varName);
 		E_trie_insert(decList->dec->var->varName, id);
 	}
 }
@@ -277,15 +299,30 @@ transdecl_sizet(Exp, int needReturn, int ifTrue, int ifFalse)
 	{
 		// 这两个名字是一起的
 		// 不是函数名就是变量名
-		printf("t_%06d := %s\n", res, _->funcName);
+		fprintf(stderr, "find ``%s'' in trie\n", _->funcName);
+		int varName = E_trie_find(_->funcName);
+		if (!varName)
+		{
+			fprintf(stderr, "undefined variable ``%s''\n", _->funcName);
+			return res;
+		}
+		printf("t_%06d := v_%06d\n", res, varName);
 		return res;
 	} else {
 		// 就是普通的表达式啦
 		switch (_->op)
 		{
 			case EJQ_OP_ASSIGN:
-				printf("%s := t_%06zu\n", _->lExp->funcName, transcall(Exp, _->rExp, True, 0, 0));
+			{
+				int leftName = E_trie_find(_->lExp->funcName);
+				if (!leftName)
+				{
+					fprintf(stderr, "undefined variable ``%s''\n", _->lExp->funcName);
+					return res;
+				}
+				printf("v_%06d := t_%06zu\n", leftName, transcall(Exp, _->rExp, True, 0, 0));
 				break;
+			}
 			case EJQ_OP_AND:
 			{
 				int falseLabel = ifFalse ? ifFalse : ++totLab;
@@ -416,6 +453,12 @@ transdecl_sizet(Exp, int needReturn, int ifTrue, int ifFalse)
 						// 夭寿啦，代码又出错啦
 				}
 				printf("t_%06d := t_%06d %s t_%06d\n", res, lval, op, rval);
+				break;
+			}
+			case EJQ_OP_UNARY_MINUS:
+			{
+				int lval = transcall(Exp, _->lExp, True, 0, 0);
+				printf("t_%06d := #0 - t_%06d\n", res, lval);
 				break;
 			}
 			default:
