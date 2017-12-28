@@ -1,6 +1,8 @@
 #ifndef TRANSLATE_C
 #define TRANSLATE_C
 
+#include <assert.h>
+
 #define trans( x ) void translate_T_##x
 #define translate( x , ... ) translate_T_##x( T_##x * _, ##__VA_ARGS__ )
 #define transdecl( x , ... ) void translate( x, ##__VA_ARGS__)
@@ -28,7 +30,7 @@ transdecl(DefList);
 transdecl(Def);
 transdecl(DecList);
 transdecl(Dec);
-transdecl(Exp, int, int, int); // need return, truelabel falselabel
+transdecl_sizet(Exp, int, int, int); // need return, truelabel falselabel
 transdecl(Args);
 
 int totTmp;
@@ -114,6 +116,21 @@ transdecl(ExtDef)
 			// 加入到trie树中
 			E_trie_insert(decList->dec->varName, id);
 		}
+	}
+}
+
+transdecl(Def)
+{
+	foreach ( _->decList, decList, N(DecList))
+	{
+		size_t vari_type = E_trie_find(_->type->typeName);
+		if (E_trie_find(decList->dec->var->varName))
+		{
+			fprintf(stderr, "Redeclare of %s\n", decList->dec->var->varName);
+			continue;
+		}
+		size_t id = transcall(VarDec, decList->dec->var, vari_type);
+		E_trie_insert(decList->dec->var->varName, id);
 	}
 }
 
@@ -236,7 +253,7 @@ transdecl(Stmt)
 	}
 }
 
-transdecl(Exp, int needReturn, int ifTrue, int ifFalse)
+transdecl_sizet(Exp, int needReturn, int ifTrue, int ifFalse)
 {
 	int res = ++totTmp;
 	if (_->isImm8 == EJQ_IMM8_INT)
@@ -251,7 +268,7 @@ transdecl(Exp, int needReturn, int ifTrue, int ifFalse)
 	{
 		// 这是一个函数调用
 		foreach(_->args, arg, N(Args))
-			printf("PUSH t_%06d\n", transcall(Exp, arg->exp, True, 0, 0));
+			printf("PUSH t_%06zu\n", transcall(Exp, arg->exp, True, 0, 0));
 		// 先这样，后面再改成找符号表
 		printf("t_%6d := CALL %s\n", res, _->funcName);
 		return res;
@@ -266,7 +283,7 @@ transdecl(Exp, int needReturn, int ifTrue, int ifFalse)
 		switch (_->op)
 		{
 			case EJQ_OP_ASSIGN:
-				printf("%s := t_%06d\n", _->lExp->funcName, transcall(Exp, _->rExp, True, 0, 0));
+				printf("%s := t_%06zu\n", _->lExp->funcName, transcall(Exp, _->rExp, True, 0, 0));
 				break;
 			case EJQ_OP_AND:
 			{
@@ -382,6 +399,7 @@ transdecl(Exp, int needReturn, int ifTrue, int ifFalse)
 			{
 				int lval = transcall(Exp, _->lExp, True, 0, 0);
 				int rval = transcall(Exp, _->rExp, True, 0, 0);
+				char op[3];
 				switch (_->op)
 				{
 					case EJQ_OP_PLUS:
@@ -399,9 +417,22 @@ transdecl(Exp, int needReturn, int ifTrue, int ifFalse)
 				printf("t_%06d := t_%06d %s t_%06d\n", res, lval, op, rval);
 				break;
 			}
+			default:
+			{
+				fprintf(stderr, "未实现\n");
+				assert(0);
+			}
 		}
 	}
+	if (ifTrue) printf("IF t_%06d != #1 GOTO l_%06d\n", res, ifTrue);
+	if (ifFalse) printf("IF t_%06d == #0 GOTO l_%06d\n", res, ifFalse);
 	return res;
+}
+
+transdecl(Args)
+{
+	fprintf(stderr, "未实现\n");
+	assert(0);
 }
 
 #undef trans

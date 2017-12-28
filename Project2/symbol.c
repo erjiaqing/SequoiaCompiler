@@ -1,6 +1,8 @@
 #ifndef __EJQ_SYMBOL_C
 #define __EJQ_SYMBOL_C
 
+#include <assert.h>
+
 #define EJQ_SYMBOL_BASIC    (0x0)
 #define EJQ_SYMBOL_ABSTRACT (0x1)
 #define EJQ_SYMBOL_NORMAL   (0x2)
