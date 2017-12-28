@@ -70,6 +70,7 @@ Program : ExtDefList {
 			dollarNode( Program );
 			_r->programBody = $1;
 			$$ = _r;
+			Translate($$);
 		}
 		;
 ExtDefList : ExtDef ExtDefList {

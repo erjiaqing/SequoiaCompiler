@@ -435,6 +435,11 @@ transdecl(Args)
 	assert(0);
 }
 
+void Translate(N(Program) *P)
+{
+	transcall(Program, P);
+}
+
 #undef trans
 #undef transdecl
 #undef translate
