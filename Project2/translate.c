@@ -274,35 +274,54 @@ transdecl(Stmt)
 	}
 }
 
-transdecl_sizet(Exp, int needReturn, int ifTrue, int ifFalse)
+RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 {
+	RetType ret;
 	int res = ++totTmp;
+	ret.lrtype = EJQ_RET_RVAL;
+	ret.id = res;
+	ret.type = 1;
+	ret.isImm8 = 0;
 	if (_->isImm8 == EJQ_IMM8_INT)
 	{
 		output("t%d := #%d\n", res, _->intVal);
-		return res;
+		ret.type = 1; // int
+		return ret;
 	} else if (_->isImm8 == EJQ_IMM8_FLOAT)
 	{
 		output("t%d := #%.20f\n", res, _->floatVal);
-		return res;
+		ret.type = 2; // float
+		return ret;
 	} else if (_->isFunc)
 	{
 		// 检查函数是否存在
 		int func_type = E_trie_find(_->funcName);
 		int func_args = E_symbol_table[func_type].son_cnt;
+		int func_rettype = E_symbol_table[func_type].type_uid;
 		if (!func_type || E_symbol_table[func_type].is_abstract != EJQ_SYMBOL_FUNCTION)
 		{
 			ce("function ``%s'' not found", _->funcName);
-			return res;
+			ret.type = 1;
+			return ret;
 		}
 		// 这是一个函数调用
+		int needArgs = func_args;
+		int realArgs = 0;
+		foreach(_->args, arg, N(Args)) realArgs++;
+		if (realArgs < needArgs)
+			ce("call function ``%s'' with %d arguments, %d needed", _->funcName, realArgs, needArgs);
+		else if (realArgs > needArgs)
+			ce("call function ``%s'' with %d arguments, requires exactly %d", _->funcName, realArgs, needArgs);
+		if (realArgs != needArgs)
+			warn("behavior is unknown");
 		foreach(_->args, arg, N(Args))
 		{
 			output("PUSH t%zu\n", transcall(Exp, arg->exp, True, 0, 0));
 		}
 		// 先这样，后面再改成找符号表
 		output("t%d := CALL %s\n", res, _->funcName);
-		return res;
+		ret.type = func_rettype;
+		return ret;
 	} else if (_->funcName)
 	{
 		// 这两个名字是一起的
@@ -312,23 +331,39 @@ transdecl_sizet(Exp, int needReturn, int ifTrue, int ifFalse)
 		if (!varName)
 		{
 			ce("undefined variable ``%s''\n", _->funcName);
-			return res;
+			return ret;
 		}
-		output("t%d := v%d\n", res, varName);
-		return res;
+		ret.type = E_symbol_table[varName].type_uid;
+		ret.lrtype = EJQ_RET_LVAL;
+		ret.id = varName;
+		// output("t%d := v%d\n", res, varName);
+		return ret;
 	} else {
 		// 就是普通的表达式啦
 		switch (_->op)
 		{
 			case EJQ_OP_ASSIGN:
 			{
-				int leftName = E_trie_find(_->lExp->funcName);
-				if (!leftName)
+				RetType leftval = transcall(_->lExp);
+				RetType rightval = transcall(_->rExp);
+				if (leftval.type != rightval.type)
 				{
-					ce("undefined variable ``%s''\n", _->lExp->funcName);
-					return res;
+					ce("type mismatch, left val is ``%s'' but right val is ``%s''",
+							E_symbol_table[leftval.type].name,
+							E_symbol_table[rightval.type].name);
 				}
-				output("v%d := t%zu\n", leftName, transcall(Exp, _->rExp, True, 0, 0));
+				if ((leftval.lrtype != EJQ_RET_LVAL) && !(leftval.lrtype & EJQ_RET_PTR))
+				{
+					ce("result of left hand expression should be left value");
+				}
+				output(
+						"%s%c%d := %s%c%zu\n",
+					   	(leftval.lrtype & EJQ_RET_PTR) ? "*" : "",
+					   	"vc"[(leftval.lrtype >> 1) & 1], 
+						leftval.id,
+						(rightval.lrtype & EJQ_RET_PTR) ? "*" : "",
+						"vc"[(rightval.lrtype >> 1) & 1],
+						rightval.id);
 				break;
 			}
 			case EJQ_OP_AND:
@@ -359,7 +394,9 @@ transdecl_sizet(Exp, int needReturn, int ifTrue, int ifFalse)
 					output("t_%d := #0\n", res);
 					output("LABEL l%d:\n", afterLabel);
 				}
-				return res;
+				ret.type = 1;
+				// 布尔表达式的返回值一定是int
+				return ret;
 				break;
 			}
 			case EJQ_OP_OR:
@@ -387,7 +424,8 @@ transdecl_sizet(Exp, int needReturn, int ifTrue, int ifFalse)
 					output("t%d := #0\n", res);
 					output("LABEL l%d:\n", afterLabel);
 				}
-				return res;
+				ret.type = 1;
+				return ret;
 				break;
 			}
 			case EJQ_OP_RELOP_LT:
@@ -437,7 +475,8 @@ transdecl_sizet(Exp, int needReturn, int ifTrue, int ifFalse)
 				} else {
 					output("GOTO l%d\n", falseLabel);
 				}
-				return res;
+				ret.type = 1;
+				return ret;
 				break;
 			}
 			case EJQ_OP_PLUS:
@@ -445,8 +484,8 @@ transdecl_sizet(Exp, int needReturn, int ifTrue, int ifFalse)
 			case EJQ_OP_STAR:
 			case EJQ_OP_DIV:
 			{
-				int lval = transcall(Exp, _->lExp, True, 0, 0);
-				int rval = transcall(Exp, _->rExp, True, 0, 0);
+				RetType lval = transcall(Exp, _->lExp, True, 0, 0);
+				RetType rval = transcall(Exp, _->rExp, True, 0, 0);
 				char op[3];
 				switch (_->op)
 				{
@@ -462,13 +501,40 @@ transdecl_sizet(Exp, int needReturn, int ifTrue, int ifFalse)
 						assert(0);
 						// 夭寿啦，代码又出错啦
 				}
-				output("t%d := t%d %s t%d\n", res, lval, op, rval);
+				if (leftval.type != rightval.type)
+				{
+					ce("type mismatch, left val is ``%s'' but right val is ``%s''",
+							E_symbol_table[leftval.type].name,
+							E_symbol_table[rightval.type].name);
+				}
+				if (leftval.type > 2)
+				{
+					ce("operator %s on ``%s'' and ``%s'' is not defined", op, E_symbol_table[leftval.type].name, E_symbol_table[rightval.type].name);
+				}
+				output(
+						"v%d := %s%c%d %s %s%c%d\n",
+						res,
+					   	(leftval.lrtype & EJQ_RET_PTR) ? "*" : "",
+					   	"vc"[(leftval.lrtype >> 1) & 1], 
+						leftval.id,
+						op,
+						(rightval.lrtype & EJQ_RET_PTR) ? "*" : "",
+						"vc"[(rightval.lrtype >> 1) & 1],
+						rightval.id);
+				ret.type = leftval.type;
 				break;
 			}
 			case EJQ_OP_UNARY_MINUS:
 			{
 				int lval = transcall(Exp, _->lExp, True, 0, 0);
-				output("t%d := #0 - t%d\n", res, lval);
+				if (leftval.type > 2)
+				{
+					ce("operator %s on ``%s'' is not defined", op, E_symbol_table[leftval.type].name);
+				}
+				output("t%d := #0 - %s%c%d\n", res, 
+						(leftval.lrtype & EJQ_RET_PTR) ? "*" : "",
+					   	"vc"[(leftval.lrtype >> 1) & 1], 
+						leftval.id);
 				break;
 			}
 			default:
@@ -478,9 +544,15 @@ transdecl_sizet(Exp, int needReturn, int ifTrue, int ifFalse)
 			}
 		}
 	}
-	if (ifTrue) output("IF t%d != #1 GOTO l%d\n", res, ifTrue);
-	if (ifFalse) output("IF t%d == #0 GOTO l%d\n", res, ifFalse);
-	return res;
+	if (ifTrue) output("IF %s%c%d != #1 GOTO l%d\n",
+						(ret.lrtype & EJQ_RET_PTR) ? "*" : "",
+					   	"vc"[(ret.lrtype >> 1) & 1], 
+						ret.id, ifTrue);
+	if (ifFalse) output("IF %s%c%d == #0 GOTO l%d\n",
+						(rer.lrtype & EJQ_RET_PTR) ? "*" : "",
+					   	"vc"[(ret.lrtype >> 1) & 1], 
+						ret.id, ifFalse);
+	return ret;
 }
 
 transdecl(Args)

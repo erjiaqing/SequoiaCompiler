@@ -26,6 +26,17 @@
 #define True (1)
 typedef int Bool;
 
+typedef struct __ret_type{
+	int lrtype; // 左值还是右值
+	int isImm8; // 是不是立即数
+	union {
+		int i;
+		float f;
+	} imm8val; // 备用，立即数的值
+	int id; // 对应的变量id (v###)，或者是 (t###)
+	int type; // 变量类型，其实主要是针对临时变量，它们不在符号表里面，所以得这样查类型
+} RetType;
+
 // Extend C grammar
 // make it like C++
 

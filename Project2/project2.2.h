@@ -26,4 +26,13 @@
 #define EJQ_IMM8_INT   (1)
 #define EJQ_IMM8_FLOAT (2)
 
+#define EJQ_RET_LVAL (1)
+#define EJQ_RET_RVAL (3)
+#define EJQ_RET_LPTR (5)
+#define EJQ_RET_RPTR (7)
+
+#define EJQ_RET_PTR (4)
+#define EJQ_RET_L (1)
+#define EJQ_RET_R (3)
+
 #endif
