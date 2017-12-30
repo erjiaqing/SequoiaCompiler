@@ -2,6 +2,7 @@
 #define TRANSLATE_C
 
 #include <assert.h>
+#include "array_predeclare.c"
 
 #define trans( x ) void translate_T_##x
 #define translate( x , ... ) translate_T_##x( T_##x * _, ##__VA_ARGS__ )
@@ -40,15 +41,27 @@ int totLab;
 
 transdecl(Program)
 {
-	output("FUNCTION read:\n"
+	// 打印内置函数
+	output("FUNCTION f%d:\n"
 			"READ _tread\n"
 			"RETURN _tread\n\n"
-		   "FUNCTION write:\n"
+		   "FUNCTION f%d:\n"
 		    "PARAM _twrite\n"
 			"WRITE _twrite\n"
-			"RETURN #1\n\n");
+			"RETURN #1\n\n",
+			E_trie_find("read"),
+			E_trie_find("write"));
 	foreach( _->programBody, extdef, N(ExtDefList))
 		transcall(ExtDef, extdef->code );
+	// 打印运行时函数
+	output("FUNCTION __init_global_array__:\n");
+	foreach(E_gv_head, gv, E_gv)
+	{
+		int var_id = gv->item_id;
+		int sz = E_symbol_table[var_id].len;
+		output("DEC v%d [%d]\n", var_id, sz);
+	}
+	output("RETURN #0\n");
 }
 
 transdecl(ExtDef)
@@ -71,7 +84,7 @@ transdecl(ExtDef)
 			ce("unknown type ``%s''\n", _->spec->typeName);
 			return;
 		}
-		size_t func_symbol_item = E_symbol_table_new();
+		int func_symbol_item = E_symbol_table_new();
 		E_symbol_table[func_symbol_item].type_uid = func_type;
 		E_symbol_table[func_symbol_item].is_abstract = EJQ_SYMBOL_FUNCTION;
 		E_symbol_table[func_symbol_item].name = _->function->name;
@@ -83,7 +96,14 @@ transdecl(ExtDef)
 		E_symbol_table[func_symbol_item].son = (size_t*)malloc(sizeof(size_t) * son_cnt);
 		int ti = 0;
 		// 打印函数首部
-		output("FUNCTION %s:\n", _->function->name);
+		// output("FUNCTION %s:\n", _->function->name);
+		if (strcmp(_->function->name, "main") == 0)
+		{
+			output("FUNCTION main:\n");
+			output("_ := CALL __init_global_array__\n");
+		} else {
+			output("FUNCTION f%d:\n", func_symbol_item);
+		}
 		foreach ( _->function->varList, vlist, N(VarList) )
 		{
 			int func_arg_symbol = E_symbol_table_new();
@@ -137,6 +157,11 @@ transdecl(ExtDef)
 			size_t id = transcall(VarDec, decList->dec, vari_type);
 			// 加入到trie树中
 			E_trie_insert(decList->dec->varName, id);
+			// 如果是数组的话，要记得申请内存
+			int new_type = E_symbol_table[id].type_uid;
+			int isArray = (E_symbol_table[new_type].is_abstract == EJQ_SYMBOL_ARRAY);
+			if (isArray)
+				E_global_variable_list_append(id);
 		}
 	}
 }
@@ -152,7 +177,13 @@ transdecl(Def)
 			continue;
 		}
 		size_t id = transcall(VarDec, decList->dec->var, vari_type);
-		E_trie_insert(decList->dec->var->varName, id);
+		// 如果是数组的话，要申请内存
+		int new_type = E_symbol_table[id].type_uid;
+		int isArray = (E_symbol_table[new_type].is_abstract == EJQ_SYMBOL_ARRAY);
+		if (isArray)
+			output("DEC v%zu [%zu]\n", id, E_symbol_table[id].len);
+
+		//E_trie_insert(decList->dec->var->varName, id);
 	}
 }
 
@@ -165,12 +196,14 @@ transdecl_sizet(VarDec, size_t spec)
 	}
 	size_t thisid = E_symbol_table_new();
 	E_symbol_table[thisid].type_uid = typeid;
-	E_symbol_table[thisid].name = _->varName;
+	E_symbol_table[thisid].name = malloc(strlen(_->varName) + 5);
+	strcpy(E_symbol_table[thisid].name, _->varName);
 	E_symbol_table[thisid].len = E_symbol_table[typeid].len;
 	E_symbol_table[thisid].is_abstract = 0x002;
 	E_symbol_table[thisid].offset = 0;
 	E_symbol_table[thisid].son_cnt = 0;
 	E_symbol_table[thisid].son = NULL;
+	E_trie_insert(_->varName, thisid);
 	return thisid;
 }
 
@@ -178,18 +211,17 @@ transdecl_sizet(VarDimList, size_t spec)
 {
 	size_t thisdim_id = spec;
 	size_t thisid = E_symbol_table_new();
-	char buf[512];
+	char buf[1024];
 	if (_->next)
 	{
 		thisdim_id = transcall(VarDimList, _->next, spec);
-		sprintf(buf, "%s/a", E_symbol_table[thisdim_id].name);
+		sprintf(buf, "%s[]", E_symbol_table[thisdim_id].name);
 	} else {
-		sprintf(buf, "%d/a", (int)spec);
+		sprintf(buf, "%s[]", E_symbol_table[spec].name);
 	}
 	E_symbol_table[thisid].type_uid = thisdim_id;
 	E_symbol_table[thisid].name = (char *)malloc(strlen(buf) + 5);
-	for (size_t i = 0; buf[i]; i++)
-		E_symbol_table[thisid].name[i] = buf[i];
+	strcpy(E_symbol_table[thisid].name, buf);
 	E_symbol_table[thisid].len = E_symbol_table[thisdim_id].len * _->thisDim;
 	E_symbol_table[thisid].is_abstract = 0x004;
 	E_symbol_table[thisid].offset = 0;
@@ -356,7 +388,10 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 			return ret;
 		}
 		ret.type = E_symbol_table[varName].type_uid;
-		ret.lrtype = EJQ_RET_LVAL;
+		if (E_symbol_table[ret.type].is_abstract & EJQ_SYMBOL_ARRAY)
+			ret.lrtype = EJQ_RET_LPTR;
+		else
+			ret.lrtype = EJQ_RET_LVAL;
 		ret.id = varName;
 		// output("t%d := v%d\n", res, varName);
 		return ret;
@@ -370,21 +405,19 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 				RetType rightval = transcall(Exp, _->rExp, True, 0, 0);
 				if (leftval.type != rightval.type)
 				{
-					ce("type mismatch, left val is ``%s''(type id = %d) but right val is ``%s''(type id = %d)",
-							E_symbol_table[leftval.type].name, leftval.type,
-							E_symbol_table[rightval.type].name, rightval.type);
+					ce("type mismatch, left val is ``%s'' but right val is ``%s''",
+							E_symbol_table[leftval.type].name,
+							E_symbol_table[rightval.type].name);
 				}
 				if ((leftval.lrtype != EJQ_RET_LVAL) && !(leftval.lrtype & EJQ_RET_PTR))
 				{
 					ce("result of left hand expression should be left value");
 				}
 				output(
-						"%s%c%d := %s%c%d\n",
-					   	(leftval.lrtype & EJQ_RET_PTR) ? "*" : "",
-					   	"vt"[(leftval.lrtype >> 1) & 1], 
+						"%s%d := %s%d\n",
+					   	EJQ_LRTYPE(leftval), 
 						leftval.id,
-						(rightval.lrtype & EJQ_RET_PTR) ? "*" : "",
-						"vt"[(rightval.lrtype >> 1) & 1],
+						EJQ_LRTYPE(rightval),
 						rightval.id);
 				break;
 			}
@@ -410,10 +443,10 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 				{
 					int afterLabel = ++totLab;
 					output("LABEL l%d:\n", trueLabel);
-					output("t%d := #1\n", res);
+					output("t%d := #1\n", ret.id);
 					output("GOTO l%d\n", afterLabel);
 					output("LABEL l%d:\n", falseLabel);
-					output("t%d := #0\n", res);
+					output("t%d := #0\n", ret.id);
 					output("LABEL l%d:\n", afterLabel);
 				}
 				ret.type = 1;
@@ -440,10 +473,10 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 				{
 					int afterLabel = ++totLab;
 					output("LABEL l%d:\n", trueLabel);
-					output("t%d := #1\n", res);
+					output("t%d := #1\n", ret.id);
 					output("GOTO l%d\n", afterLabel);
 					output("LABEL l%d:\n", falseLabel);
-					output("t%d := #0\n", res);
+					output("t%d := #0\n", ret.id);
 					output("LABEL l%d:\n", afterLabel);
 				}
 				ret.type = 1;
@@ -486,17 +519,17 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 				}
 				lval = transcall(Exp, _->lExp, True, 0, 0);
 				rval = transcall(Exp, _->rExp, True, 0, 0);
-				output("IF %s%c%d %s %s%c%d GOTO l%d\n", (lval.lrtype & EJQ_RET_PTR) ? "*" : "",
-					   	"vt"[(lval.lrtype >> 1) & 1], 
-						lval.id, op, (rval.lrtype & EJQ_RET_PTR) ? "*" : "",
-					   	"vt"[(rval.lrtype >> 1) & 1], 
+				output("IF %s%d %s %s%d GOTO l%d\n",
+						EJQ_LRTYPE(lval),
+						lval.id, op,
+						EJQ_LRTYPE(rval),
 						rval.id, trueLabel);
 				if (needReturn)
 				{
-					output("t%d := #0", res);
+					output("t%d := #0", ret.id);
 					output("GOTO l%d\n", falseLabel);
 					output("LABEL l%d\n", trueLabel);
-					output("t%d := #1", res);
+					output("t%d := #1", ret.id);
 					output("LABEL l%d\n", falseLabel);
 				} else {
 					output("GOTO l%d\n", falseLabel);
@@ -538,14 +571,12 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 					ce("operator %s on ``%s'' and ``%s'' is not defined", op, E_symbol_table[leftval.type].name, E_symbol_table[rightval.type].name);
 				}
 				output(
-						"v%d := %s%c%d %s %s%c%d\n",
-						res,
-					   	(leftval.lrtype & EJQ_RET_PTR) ? "*" : "",
-					   	"vt"[(leftval.lrtype >> 1) & 1], 
+						"v%d := %s%d %s %s%d\n",
+						ret.id,
+						EJQ_LRTYPE(leftval),
 						leftval.id,
 						op,
-						(rightval.lrtype & EJQ_RET_PTR) ? "*" : "",
-						"vt"[(rightval.lrtype >> 1) & 1],
+						EJQ_LRTYPE(rightval),
 						rightval.id);
 				ret.type = leftval.type;
 				break;
@@ -557,10 +588,31 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 				{
 					ce("operator ``-'' on ``%s'' is not defined", E_symbol_table[leftval.type].name);
 				}
-				output("t%d := #0 - %s%c%d\n", res, 
-						(leftval.lrtype & EJQ_RET_PTR) ? "*" : "",
-					   	"vt"[(leftval.lrtype >> 1) & 1], 
-						leftval.id);
+				output("t%d := #0 - %s%d\n", ret.id, 
+						EJQ_LRTYPE(leftval),
+						leftval.id
+					  );
+				break;
+			}
+			case EJQ_OP_ARRAY:
+			{
+				RetType leftval = transcall(Exp, _->lExp, True, 0, 0);
+				if (!(E_symbol_table[leftval.type].is_abstract & EJQ_SYMBOL_ARRAY))
+				{
+					ce("operator ``[]'' applied to non-array variable");
+					return ret;
+				}
+				RetType rightval = transcall(Exp, _->rExp, True, 0, 0);
+				if (rightval.type != 1)
+				{
+					ce("expression in ``[]'' returns non-integer value");
+					return ret;
+				}
+				// 如果是数组的话，这里写的就是这一维的类型
+				ret.type = E_symbol_table[leftval.type].type_uid;
+				ret.lrtype = EJQ_RET_RPTR;
+				output("_offset := %s%d * #%zu\n", EJQ_LRTYPE(rightval), rightval.id, E_symbol_table[ret.type].len);
+				output("t%d := %c%d + _offset\n", ret.id, "vt"[(leftval.lrtype >> 1) & 1], leftval.id);
 				break;
 			}
 			default:
@@ -570,13 +622,11 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 			}
 		}
 	}
-	if (ifTrue) output("IF %s%c%d != #1 GOTO l%d\n",
-						(ret.lrtype & EJQ_RET_PTR) ? "*" : "",
-					   	"vt"[(ret.lrtype >> 1) & 1], 
+	if (ifTrue) output("IF %s%d != #1 GOTO l%d\n",
+						EJQ_LRTYPE(ret),
 						ret.id, ifTrue);
-	if (ifFalse) output("IF %s%c%d == #0 GOTO l%d\n",
-						(ret.lrtype & EJQ_RET_PTR) ? "*" : "",
-					   	"vt"[(ret.lrtype >> 1) & 1], 
+	if (ifFalse) output("IF %s%d == #0 GOTO l%d\n",
+						EJQ_LRTYPE(ret),
 						ret.id, ifFalse);
 	return ret;
 }

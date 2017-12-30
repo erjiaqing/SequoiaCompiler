@@ -31,6 +31,14 @@
 #define EJQ_RET_LPTR (5)
 #define EJQ_RET_RPTR (7)
 
+const char* EJQ_V_OUTPUT_TYPE[] = {
+	"", "v", "", "t", "", "*v", "", "*t"
+};
+
+#define EJQ_LRTYPE( x ) (EJQ_V_OUTPUT_TYPE[ x.lrtype ])
+#define EJQ_F_LR "%s%d"
+#define EJQ_ARG_LR( x ) EJQ_LRTYPE(x),(x).id
+
 #define EJQ_RET_PTR (4)
 #define EJQ_RET_L (1)
 #define EJQ_RET_R (3)
