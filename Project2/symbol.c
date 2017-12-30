@@ -64,21 +64,25 @@ void E_symbol_table_init()
 	size_t floatnode = E_symbol_table_new();
 	E_symbol_table[floatnode].len = 4;
 	E_symbol_table[floatnode].name = (char *)malloc(strlen("float") + 2);
-	strcpy(E_symbol_table[intnode].name, "float");
+	strcpy(E_symbol_table[floatnode].name, "float");
 	E_trie_insert("int", intnode);
 	E_trie_insert("float", floatnode);
 	//---
 	size_t readnode = E_symbol_table_new();
 	E_symbol_table[readnode].is_abstract = EJQ_SYMBOL_FUNCTION;
+	E_symbol_table[readnode].type_uid = intnode;
 	E_symbol_table[readnode].name = (char *)malloc(strlen("read") + 2);
 	strcpy(E_symbol_table[readnode].name, "read");
 	E_trie_insert("read", readnode);
 	size_t writenode = E_symbol_table_new();
 	E_symbol_table[writenode].is_abstract = EJQ_SYMBOL_FUNCTION;
+	E_symbol_table[writenode].type_uid = intnode;
 	E_symbol_table[writenode].name = (char *)malloc(strlen("write") + 2);
 	E_symbol_table[writenode].son_cnt = 1;
 	E_symbol_table[writenode].son = (size_t *)malloc(sizeof(size_t));
-	E_symbol_table[writenode].son[0] = intnode;
+	size_t writenodearg = E_symbol_table_new();
+	E_symbol_table[writenodearg].type_uid = intnode;
+	E_symbol_table[writenode].son[0] = writenodearg;
 	strcpy(E_symbol_table[writenode].name, "write");
 	E_trie_insert("write", writenode);
 //	E_trie_insert();

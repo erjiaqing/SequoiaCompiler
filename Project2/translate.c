@@ -30,7 +30,7 @@ transdecl(DefList);
 transdecl(Def);
 transdecl(DecList);
 transdecl(Dec);
-transdecl_sizet(Exp, int, int, int); // need return, truelabel falselabel
+RetType translate(Exp, int, int, int); // need return, truelabel falselabel
 transdecl(Args);
 
 int totTmp;
@@ -95,6 +95,7 @@ transdecl(ExtDef)
 				ce("unknown type %s\n", vlist->thisParam->type->typeName);
 				return;
 			}
+			ti++;
 			// 获取参数
 			output("PARAM v%d\n", func_arg_symbol);
 		}
@@ -117,7 +118,7 @@ transdecl(ExtDef)
 		size_t vari_type = E_trie_find(_->spec->typeName);
 		if (!vari_type)
 		{
-			ce("unknown type %s\n", _->spec->typeName);
+			ce("unknown type ``%s''", _->spec->typeName);
 			return;
 		}
 		// TODO: 处理包含结构体定义的情况
@@ -129,7 +130,7 @@ transdecl(ExtDef)
 			{
 				// 可持久化Trie树
 				// 这是全局变量，所以直接查询当前的版本有没有定义就好了
-				ce("redeclare of %s\n", decList->dec->varName);
+				ce("redeclare of ``%s''", decList->dec->varName);
 				continue;
 			}
 			// 计算这个变量
@@ -147,7 +148,7 @@ transdecl(Def)
 		size_t vari_type = E_trie_find(_->type->typeName);
 		if (E_trie_find(decList->dec->var->varName))
 		{
-			ce("redeclare of %s\n", decList->dec->var->varName);
+			ce("redeclare of ``%s''", decList->dec->var->varName);
 			continue;
 		}
 		size_t id = transcall(VarDec, decList->dec->var, vari_type);
@@ -217,9 +218,9 @@ transdecl(Stmt)
 	{
 		// 有返回值，要把返回值return掉
 		// TODO: 类型检查
-		int returnTmp = transcall(Exp, _->expression, True, 0, 0);
+		RetType returnTmp = transcall(Exp, _->expression, True, 0, 0);
 		// 需要返回值，没有跳转
-		output("RETURN t%d\n", returnTmp);
+		output("RETURN t%d\n", returnTmp.id);
 		// 这是第一句输出的话啊!
 	} else if (_->isWhile)
 	{
@@ -242,7 +243,11 @@ transdecl(Stmt)
 			false_branch = ++totLab;
 		}
 		// 注意到如果没有假分支，那么假就跳到if结束
-		transcall(Exp, _->expression, False, true_branch, false_branch);
+		RetType r = transcall(Exp, _->expression, False, true_branch, false_branch);
+		if (r.type != 1)
+		{
+			ce("type of conditional expression is not ``int''");
+		}
 		// 肯定有真分支
 		output("LABEL l%d:\n", true_branch);
 		transcall(Stmt, _->ifTrue);
@@ -304,6 +309,7 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 			ret.type = 1;
 			return ret;
 		}
+		debug("translate function call ``%s'' --> return with [%s](%d)\n", _->funcName, E_symbol_table[E_symbol_table[func_type].type_uid].name, E_symbol_table[func_type].type_uid);
 		// 这是一个函数调用
 		int needArgs = func_args;
 		int realArgs = 0;
@@ -316,7 +322,18 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 			warn("behavior is unknown");
 		foreach(_->args, arg, N(Args))
 		{
-			output("PUSH t%zu\n", transcall(Exp, arg->exp, True, 0, 0));
+			RetType t = transcall(Exp, arg->exp, True, 0, 0);
+			needArgs--;
+			if (needArgs >= 0)
+			{
+				int son_node = E_symbol_table[func_type].son[needArgs];
+				int son_node_type = E_symbol_table[son_node].type_uid;
+				if (t.type != son_node_type)
+				{
+					ce("type of argument %d mismatch: requires ``%s'', got ``%s''", needArgs + 1, E_symbol_table[son_node_type].name, E_symbol_table[t.type].name);
+				}
+			}
+			output("PUSH t%d\n", t.id);
 		}
 		// 先这样，后面再改成找符号表
 		output("t%d := CALL %s\n", res, _->funcName);
@@ -330,7 +347,12 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 		int varName = E_trie_find(_->funcName);
 		if (!varName)
 		{
-			ce("undefined variable ``%s''\n", _->funcName);
+			ce("undefined variable ``%s''", _->funcName);
+			return ret;
+		}
+		if (E_symbol_table[varName].is_abstract != EJQ_SYMBOL_NORMAL)
+		{
+			ce("``%s'' is not a variable", _->funcName);
 			return ret;
 		}
 		ret.type = E_symbol_table[varName].type_uid;
@@ -344,25 +366,25 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 		{
 			case EJQ_OP_ASSIGN:
 			{
-				RetType leftval = transcall(_->lExp);
-				RetType rightval = transcall(_->rExp);
+				RetType leftval = transcall(Exp, _->lExp, True, 0, 0);
+				RetType rightval = transcall(Exp, _->rExp, True, 0, 0);
 				if (leftval.type != rightval.type)
 				{
-					ce("type mismatch, left val is ``%s'' but right val is ``%s''",
-							E_symbol_table[leftval.type].name,
-							E_symbol_table[rightval.type].name);
+					ce("type mismatch, left val is ``%s''(type id = %d) but right val is ``%s''(type id = %d)",
+							E_symbol_table[leftval.type].name, leftval.type,
+							E_symbol_table[rightval.type].name, rightval.type);
 				}
 				if ((leftval.lrtype != EJQ_RET_LVAL) && !(leftval.lrtype & EJQ_RET_PTR))
 				{
 					ce("result of left hand expression should be left value");
 				}
 				output(
-						"%s%c%d := %s%c%zu\n",
+						"%s%c%d := %s%c%d\n",
 					   	(leftval.lrtype & EJQ_RET_PTR) ? "*" : "",
-					   	"vc"[(leftval.lrtype >> 1) & 1], 
+					   	"vt"[(leftval.lrtype >> 1) & 1], 
 						leftval.id,
 						(rightval.lrtype & EJQ_RET_PTR) ? "*" : "",
-						"vc"[(rightval.lrtype >> 1) & 1],
+						"vt"[(rightval.lrtype >> 1) & 1],
 						rightval.id);
 				break;
 			}
@@ -372,7 +394,7 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 				int trueLabel = ifTrue ? ifTrue : ++totLab;
 				int B1True = ++totLab;
 				int B1False = falseLabel;
-				int lval, rval;
+				RetType lval, rval;
 				if (needReturn)
 				{
 					assert(ifTrue == 0 && ifFalse == 0);
@@ -391,7 +413,7 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 					output("t%d := #1\n", res);
 					output("GOTO l%d\n", afterLabel);
 					output("LABEL l%d:\n", falseLabel);
-					output("t_%d := #0\n", res);
+					output("t%d := #0\n", res);
 					output("LABEL l%d:\n", afterLabel);
 				}
 				ret.type = 1;
@@ -405,7 +427,7 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 				int trueLabel = ifTrue ? ifTrue : ++totLab;
 				int B1True = trueLabel;
 				int B1False = ++totLab;
-				int lval, rval;
+				RetType lval, rval;
 				if (needReturn)
 				{
 					assert(ifTrue == 0 && ifFalse == 0);
@@ -435,7 +457,7 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 			case EJQ_OP_RELOP_GT:
 			case EJQ_OP_RELOP_NE:
 			{
-				int lval, rval;
+				RetType lval, rval;
 				int trueLabel = ifTrue ? ifTrue : ++totLab;
 				int falseLabel = ifFalse ? ifFalse : ++totLab;
 				char op[3];
@@ -464,13 +486,17 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 				}
 				lval = transcall(Exp, _->lExp, True, 0, 0);
 				rval = transcall(Exp, _->rExp, True, 0, 0);
-				output("IF t%d %s t%d GOTO l%d\n", lval, op, rval, trueLabel);
+				output("IF %s%c%d %s %s%c%d GOTO l%d\n", (lval.lrtype & EJQ_RET_PTR) ? "*" : "",
+					   	"vt"[(lval.lrtype >> 1) & 1], 
+						lval.id, op, (rval.lrtype & EJQ_RET_PTR) ? "*" : "",
+					   	"vt"[(rval.lrtype >> 1) & 1], 
+						rval.id, trueLabel);
 				if (needReturn)
 				{
 					output("t%d := #0", res);
 					output("GOTO l%d\n", falseLabel);
 					output("LABEL l%d\n", trueLabel);
-					output("t_%06d := #1", res);
+					output("t%d := #1", res);
 					output("LABEL l%d\n", falseLabel);
 				} else {
 					output("GOTO l%d\n", falseLabel);
@@ -484,8 +510,8 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 			case EJQ_OP_STAR:
 			case EJQ_OP_DIV:
 			{
-				RetType lval = transcall(Exp, _->lExp, True, 0, 0);
-				RetType rval = transcall(Exp, _->rExp, True, 0, 0);
+				RetType leftval = transcall(Exp, _->lExp, True, 0, 0);
+				RetType rightval = transcall(Exp, _->rExp, True, 0, 0);
 				char op[3];
 				switch (_->op)
 				{
@@ -515,25 +541,25 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 						"v%d := %s%c%d %s %s%c%d\n",
 						res,
 					   	(leftval.lrtype & EJQ_RET_PTR) ? "*" : "",
-					   	"vc"[(leftval.lrtype >> 1) & 1], 
+					   	"vt"[(leftval.lrtype >> 1) & 1], 
 						leftval.id,
 						op,
 						(rightval.lrtype & EJQ_RET_PTR) ? "*" : "",
-						"vc"[(rightval.lrtype >> 1) & 1],
+						"vt"[(rightval.lrtype >> 1) & 1],
 						rightval.id);
 				ret.type = leftval.type;
 				break;
 			}
 			case EJQ_OP_UNARY_MINUS:
 			{
-				int lval = transcall(Exp, _->lExp, True, 0, 0);
+				RetType leftval = transcall(Exp, _->lExp, True, 0, 0);
 				if (leftval.type > 2)
 				{
-					ce("operator %s on ``%s'' is not defined", op, E_symbol_table[leftval.type].name);
+					ce("operator ``-'' on ``%s'' is not defined", E_symbol_table[leftval.type].name);
 				}
 				output("t%d := #0 - %s%c%d\n", res, 
 						(leftval.lrtype & EJQ_RET_PTR) ? "*" : "",
-					   	"vc"[(leftval.lrtype >> 1) & 1], 
+					   	"vt"[(leftval.lrtype >> 1) & 1], 
 						leftval.id);
 				break;
 			}
@@ -546,11 +572,11 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 	}
 	if (ifTrue) output("IF %s%c%d != #1 GOTO l%d\n",
 						(ret.lrtype & EJQ_RET_PTR) ? "*" : "",
-					   	"vc"[(ret.lrtype >> 1) & 1], 
+					   	"vt"[(ret.lrtype >> 1) & 1], 
 						ret.id, ifTrue);
 	if (ifFalse) output("IF %s%c%d == #0 GOTO l%d\n",
-						(rer.lrtype & EJQ_RET_PTR) ? "*" : "",
-					   	"vc"[(ret.lrtype >> 1) & 1], 
+						(ret.lrtype & EJQ_RET_PTR) ? "*" : "",
+					   	"vt"[(ret.lrtype >> 1) & 1], 
 						ret.id, ifFalse);
 	return ret;
 }

@@ -507,7 +507,7 @@ int main(int argc, char **argv)
 	if (argc == 3) {
 		result_writer = fopen(argv[2], "w");
 	} else {
-		result_writer = stdout;
+		result_writer = fopen("a.ir", "w");
 	}
 	move_to_next_line();
 	yyparse();
