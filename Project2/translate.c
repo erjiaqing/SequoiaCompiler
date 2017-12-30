@@ -109,6 +109,7 @@ transdecl(ExtDef)
 			int func_arg_symbol = E_symbol_table_new();
 			E_symbol_table[func_symbol_item].son[ti] = func_arg_symbol;
 			E_symbol_table[func_arg_symbol].type_uid = E_trie_find(vlist->thisParam->type->typeName);
+			E_symbol_table[func_arg_symbol].is_abstract = EJQ_SYMBOL_NORMAL;
 			E_trie_insert(vlist->thisParam->name->varName, func_arg_symbol);
 			if (!E_symbol_table[func_arg_symbol].type_uid)
 			{
@@ -368,7 +369,7 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 			output("PUSH t%d\n", t.id);
 		}
 		// 先这样，后面再改成找符号表
-		output("t%d := CALL %s\n", res, _->funcName);
+		output("t%d := CALL f%d\n", res, func_type);
 		ret.type = func_rettype;
 		return ret;
 	} else if (_->funcName)
@@ -571,7 +572,8 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 					ce("operator %s on ``%s'' and ``%s'' is not defined", op, E_symbol_table[leftval.type].name, E_symbol_table[rightval.type].name);
 				}
 				output(
-						"v%d := %s%d %s %s%d\n",
+						"%s%d := %s%d %s %s%d\n",
+						EJQ_LRTYPE(ret),
 						ret.id,
 						EJQ_LRTYPE(leftval),
 						leftval.id,
