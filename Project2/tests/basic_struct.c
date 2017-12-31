@@ -8,7 +8,7 @@ struct Pos2D{
 int main()
 {
 	struct Pos2D k;
-	struct Pos2D{
+	struct Pos4D{
 		int z, w;
 	}hehehe;
 	float t;
@@ -17,6 +17,7 @@ int main()
 	i = read();
 	t = k.x;
 	k.y = r;
+	hehehe.z = hehehe.w = i;
 	write(k.q.z);
 	write(k.p[3].h2);
 	write(k.p[2].p);

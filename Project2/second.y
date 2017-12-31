@@ -6,6 +6,10 @@
 #include <string.h>
 #include <stdarg.h>
 
+#include "symbol.c"
+#include "trie.c"
+#include "project2.h"
+#include "project2.2.h"
 #include "extend.h"
 #include "node.c"
 
@@ -20,11 +24,7 @@ int legal = 1;
 
 int yylex();
 
-#include "symbol.c"
-#include "trie.c"
 #include "project1.h"
-#include "project2.h"
-#include "project2.2.h"
 #include "translate.c"
 
 // 遍历，内存漏就漏吧= =
@@ -36,7 +36,7 @@ void travel(node_star rt, int lvl)
 	}
 	//printf("[%3d:%3d]->[%3d:%3d]", rt->start_lineno, rt->start_pos, rt->end_lineno, rt->end_pos - 1);
 	for (int i = 0; i < lvl; i++) fprintf(result_writer, "  ");
-	fprintf(result_writer, "%s %d %d\n", rt->label, rt->soncnt, rt->start_lineno);
+	fprintf(result_writer, "%s %d %d\n", rt->label, rt->soncnt, rt->_start_line);
 	for (int i = 0; i < rt->soncnt; i++)
 		if (rt->son[i])
 			travel(rt->son[i], lvl + 1);
@@ -71,29 +71,30 @@ int totUnnamedStruct = 0;
 Program : ExtDefList {
 			dollarNode( Program );
 			_r->programBody = $1;
+			calcPosition(_r, _r->programBody);
 			$$ = _r;
 			Translate($$);
 		}
 		;
 ExtDefList : ExtDef ExtDefList {
 		    dollarNode( ExtDefList );
-			_r->code = $1;
-			_r->next = $2;
+			_r->code = $1;calcPosition(_r, _r->code);
+			_r->next = $2;calcPosition(_r, _r->next);
 			$$ = _r;
 		}
 		   | /* empty */ {$$ = NULL;}
 		   ;
 ExtDef : Specifier ExtDecList SEMI {
 			dollarNode( ExtDef );
-			_r->spec = $1;
-			_r->dec = $2;
+			_r->spec = $1;calcPosition(_r, _r->spec);
+			_r->dec = $2;calcPosition(_r, _r->dec);
 			_r->function = NULL;
 			_r->functionBody = NULL;
 			$$ = _r;
 		}
 	   | Specifier SEMI {
 			dollarNode( ExtDef );
-			_r->spec = $1;
+			_r->spec = $1;calcPosition(_r, _r->spec);
 			_r->dec = NULL;
 			_r->function = NULL;
 			_r->functionBody = NULL;
@@ -101,42 +102,45 @@ ExtDef : Specifier ExtDecList SEMI {
 		}
 	   | Specifier FunDec CompSt {
 			dollarNode( ExtDef );
-			_r->spec = $1;
+			_r->spec = $1;calcPosition(_r, _r->spec);
 			_r->dec = NULL;
-			_r->function = $2;
-			_r->functionBody = $3;
+			_r->function = $2;calcPosition(_r, _r->function);
+			_r->functionBody = $3;calcPosition(_r, _r->functionBody);
 			$$ = _r;
 		}
 	   ;
 ExtDecList : VarDec {
 			dollarNode( ExtDecList );
-			_r->dec = $1;
+			_r->dec = $1;calcPosition(_r, _r->dec);
 			_r->next = NULL;
 			$$ = _r;
 		}
 		   | VarDec COMMA ExtDecList {
 			dollarNode( ExtDecList );
-			_r->dec = $1;
-			_r->next = $3;
+			_r->dec = $1;calcPosition(_r, _r->dec);
+			_r->next = $3;calcPosition(_r, _r->next);
 			$$ = _r;
 		}
 		   ;
 Specifier : TYPE {
 			dollarNode( Specifier );
-			_r->typeName = pCast(node, $1)->label;
+			_r->typeName = pCast(node, $1)->label;calcPosition(_r, (pCast(node, $1)));
 			_r->structName = NULL;
 			$$ = _r;
 		}
 		  | StructSpecifier {
 			dollarNode( Specifier );
-			_r->typeName = pCast(Pj2Type(StructSpecifier), $1)->typeName;
 			_r->structName = $1;
+			_r->typeName = _r->structName->typeName;
+			calcPosition(_r, _r->structName);
 			$$ = _r;
 		}
 		  ;
 StructSpecifier : STRUCT OptTag LC DefList RC {
 			dollarNode( StructSpecifier );
 			_r->typeName = $2 ? (pCast(node, $2)->label) : NULL;
+			calcPosition(_r, (pCast(node, $1)));
+			calcPosition(_r, (pCast(node, $5)));
 			if (_r->typeName == NULL)
 			{
 				// 如果这个结构体没有名字，我们就按序号编一个
@@ -153,6 +157,8 @@ StructSpecifier : STRUCT OptTag LC DefList RC {
 				| STRUCT Tag {
 			dollarNode( StructSpecifier );
 			_r->typeName = (pCast(node, $2)->label);
+			calcPosition(_r, (pCast(node, $1)));
+			calcPosition(_r, (pCast(node, $2)));
 			$$ = _r;
 		}
 				;
@@ -164,18 +170,23 @@ Tag : ID {$$ = $1;}
 VarDec : ID {
 			dollarNode( VarDec );
 			_r->varName = pCast(node, $1)->label;
+			calcPosition(_r, pCast(node, $1));
 			$$ = _r;
 		}
 	   | ID VarDimList {
 			dollarNode( VarDec );
 			_r->varName = pCast(node, $1)->label;
 			_r->dim = $2;
+			calcPosition(_r, pCast(node, $1));
+			calcPosition(_r, _r->dim);
 			$$ = _r;
 		}
 	   ;
 VarDimList : LB INT RB {
 			dollarNode( VarDimList );
 			_r->thisDim = atoi(pCast(node, $2)->label);
+			calcPosition(_r, pCast(node, $1));
+			calcPosition(_r, pCast(node, $3));
 			_r->next = NULL;
 			$$ = _r;
 		}
@@ -183,6 +194,8 @@ VarDimList : LB INT RB {
 			dollarNode( VarDimList );
 			_r->thisDim = atoi(pCast(node, $2)->label);
 			_r->next = $4;
+			calcPosition(_r, pCast(node, $1));
+			calcPosition(_r, _r->next);
 			$$ = _r;
 		}
            | LB error RB {raise_line_error(charno - 1, charno, _E_COLOR_ERR);$$ = NULL;}
@@ -191,12 +204,16 @@ FunDec : ID LP VarList RP {
 			dollarNode( FunDec );
 			_r->name = pCast(node, $1)->label;
 			_r->varList = $3;
+			calcPosition(_r, pCast(node, $1));
+			calcPosition(_r, pCast(node, $4));
 			$$ = _r;
 		}
 	   | ID LP RP {
 			dollarNode( FunDec );
 			_r->name = pCast(node, $1)->label;
 			_r->varList = NULL;
+			calcPosition(_r, pCast(node, $1));
+			calcPosition(_r, pCast(node, $3));
 			$$ = _r;
 		}
 	   | ID LP error RP {
@@ -208,12 +225,15 @@ VarList : ParamDec COMMA VarList {
 			dollarNode( VarList );
 			_r->thisParam = $1;
 			_r->next = $3;
+			calcPosition(_r, _r->thisParam);
+			calcPosition(_r, _r->next);
 			$$ = _r;
 		}
 		| ParamDec {
 			dollarNode( VarList );
 			_r->thisParam = $1;
 			_r->next = NULL;
+			calcPosition(_r, _r->thisParam);
 			$$ = _r;
 		}
 		| ParamDec error {yyerror("<<Error Type B.0>> `,' expected");yyerrok;}
@@ -222,6 +242,8 @@ ParamDec : Specifier VarDec {
 			dollarNode( ParamDec );
 			_r->type = $1;
 			_r->name = $2;
+			calcPosition(_r, _r->type);
+			calcPosition(_r, _r->name);
 			$$ = _r;
 		}
 		 ;
@@ -229,6 +251,8 @@ CompSt : LC DefList StmtList RC {
 			dollarNode( CompSt );
 			_r->defList = $2;
 			_r->stmtList = $3;
+			calcPosition(_r, pCast(node, $1));
+			calcPosition(_r, pCast(node, $4));
 			$$ = _r;
 		}
 	   ;
@@ -236,6 +260,8 @@ StmtList : Stmt StmtList {
 			dollarNode( StmtList );
 			_r->statement = $1;
 			_r->next = $2;
+			calcPosition(_r, _r->statement);
+			calcPosition(_r, _r->next);
 			$$ = _r;
 		}
 		 | /* empty */ {$$ = NULL;}
@@ -248,6 +274,8 @@ Stmt : Exp SEMI {
 			_r->isWhile = False;
 			_r->ifTrue = NULL;
 			_r->ifFalse = NULL;
+			calcPosition(_r, _r->expression);
+			calcPosition(_r, pCast(node, $2));
 			$$ = _r;
 		}
 	 | CompSt {
@@ -258,6 +286,7 @@ Stmt : Exp SEMI {
 			_r->isWhile = False;
 			_r->ifTrue = NULL;
 			_r->ifFalse = NULL;
+			calcPosition(_r, _r->compStatement);
 			$$ = _r;
 		}
 	 | RETURN Exp SEMI {
@@ -268,6 +297,8 @@ Stmt : Exp SEMI {
 			_r->isWhile = False;
 			_r->ifTrue = NULL;
 			_r->ifFalse = NULL;
+			calcPosition(_r, pCast(node, $1));
+			calcPosition(_r, pCast(node, $3));
 			$$ = _r;
 		}
 	 | IF LP Exp RP Stmt %prec LOWER_THAN_ELSE {
@@ -278,6 +309,8 @@ Stmt : Exp SEMI {
 			_r->isWhile = False;
 			_r->ifTrue = $5;
 			_r->ifFalse = NULL;
+			calcPosition(_r, pCast(node, $1));
+			calcPosition(_r, _r->ifTrue);
 			$$ = _r;
 		}
 	 | IF LP Exp RP Stmt ELSE Stmt {
@@ -288,6 +321,8 @@ Stmt : Exp SEMI {
 			_r->isWhile = False;
 			_r->ifTrue = $5;
 			_r->ifFalse = $7;
+			calcPosition(_r, pCast(node, $1));
+			calcPosition(_r, _r->ifFalse);
 			$$ = _r;
 		}
 	 | IF LP error RP {
@@ -300,6 +335,8 @@ Stmt : Exp SEMI {
 			_r->isReturn = _r->isWhile = False;
 			_r->ifTrue = $5;
 			_r->ifFalse = NULL;
+			calcPosition(_r, pCast(node, $1));
+			calcPosition(_r, _r->ifTrue);
 			$$ = _r;
 		}
 	 | Exp error {
@@ -319,6 +356,8 @@ DefList : Def DefList {
 			dollarNode( DefList );
 			_r->def = $1;
 			_r->next = $2;
+			calcPosition(_r, _r->def);
+			calcPosition(_r, _r->next);
 			$$ = _r;
 		}
 		| /* empty */ {$$ = NULL;}
@@ -327,18 +366,23 @@ Def : Specifier DecList SEMI {
 			dollarNode( Def );
 			_r->type = $1;
 			_r->decList = $2;
+			calcPosition(_r, _r->type);
+			calcPosition(_r, _r->decList);
 			$$ = _r;
 		}
 	;
 DecList : Dec {
 			dollarNode( DecList );
 			_r->dec = $1;
+			calcPosition(_r, _r->dec);
 			$$ = _r;
 		}
 		| Dec COMMA DecList {
 			dollarNode( DecList );
 			_r->dec = $1;
 			_r->next = $3;
+			calcPosition(_r, _r->dec);
+			calcPosition(_r, _r->next);
 			$$ = _r;
 		}
 		;
@@ -346,11 +390,14 @@ Dec : VarDec ASSIGNOP Exp {
 			dollarNode( Dec );
 			_r->var = $1;
 			_r->value = $3;
+			calcPosition(_r, _r->var);
+			calcPosition(_r, _r->value);
 			$$ = _r;
 		}
 	| VarDec {
 			dollarNode( Dec );
 			_r->var = $1;
+			calcPosition(_r, _r->var);
 			$$ = _r;
 		}
 	;
@@ -359,6 +406,8 @@ Exp : Exp ASSIGNOP Exp {
 			_r->lExp = $1;
 			_r->rExp = $3;
 			_r->op = EJQ_OP_ASSIGN;
+			calcPosition(_r, _r->lExp);
+			calcPosition(_r, _r->rExp);
 			$$ = _r;
 		}
 	| Exp AND Exp {
@@ -366,6 +415,8 @@ Exp : Exp ASSIGNOP Exp {
 			_r->lExp = $1;
 			_r->rExp = $3;
 			_r->op = EJQ_OP_AND;
+			calcPosition(_r, _r->lExp);
+			calcPosition(_r, _r->rExp);
 			$$ = _r;
 		}
 	| Exp OR Exp {
@@ -373,6 +424,8 @@ Exp : Exp ASSIGNOP Exp {
 			_r->lExp = $1;
 			_r->rExp = $3;
 			_r->op = EJQ_OP_OR;
+			calcPosition(_r, _r->lExp);
+			calcPosition(_r, _r->rExp);
 			$$ = _r;
 		}
 	| Exp RELOP Exp {
@@ -389,6 +442,8 @@ Exp : Exp ASSIGNOP Exp {
 				fprintf(stderr, "Bug, undefined relop!\n");
 				exit(-1);
 			}
+			calcPosition(_r, _r->lExp);
+			calcPosition(_r, _r->rExp);
 			$$ = _r;
 		}
 	| Exp PLUS Exp {
@@ -396,6 +451,8 @@ Exp : Exp ASSIGNOP Exp {
 			_r->lExp = $1;
 			_r->rExp = $3;
 			_r->op = EJQ_OP_PLUS;
+			calcPosition(_r, _r->lExp);
+			calcPosition(_r, _r->rExp);
 			$$ = _r;
 		}
 	| Exp MINUS Exp {
@@ -403,6 +460,8 @@ Exp : Exp ASSIGNOP Exp {
 			_r->lExp = $1;
 			_r->rExp = $3;
 			_r->op = EJQ_OP_MINUS;
+			calcPosition(_r, _r->lExp);
+			calcPosition(_r, _r->rExp);
 			$$ = _r;
 		}
 	| Exp STAR Exp {
@@ -410,6 +469,8 @@ Exp : Exp ASSIGNOP Exp {
 			_r->lExp = $1;
 			_r->rExp = $3;
 			_r->op = EJQ_OP_STAR;
+			calcPosition(_r, _r->lExp);
+			calcPosition(_r, _r->rExp);
 			$$ = _r;
 		}
 	| Exp DIV Exp {
@@ -417,6 +478,8 @@ Exp : Exp ASSIGNOP Exp {
 			_r->lExp = $1;
 			_r->rExp = $3;
 			_r->op = EJQ_OP_DIV;
+			calcPosition(_r, _r->lExp);
+			calcPosition(_r, _r->rExp);
 			$$ = _r;
 		}
 	| LP Exp RP {
@@ -426,12 +489,16 @@ Exp : Exp ASSIGNOP Exp {
 			dollarNode( Exp );
 			_r->lExp = $2;
 			_r->op = EJQ_OP_UNARY_MINUS;
+			calcPosition(_r, _r->lExp);
+			calcPosition(_r, pCast(node, $1));
 			$$ = _r;
 		}
 	| NOT Exp {
 			dollarNode( Exp );
 			_r->lExp = $2;
 			_r->op = EJQ_OP_UNARY_NOT;
+			calcPosition(_r, _r->lExp);
+			calcPosition(_r, pCast(node, $1));
 			$$ = _r;
 		}
 	| ID LP Args RP {
@@ -440,6 +507,8 @@ Exp : Exp ASSIGNOP Exp {
 			strcpy(_r->funcName, getLabel($1));
 			_r->args = $3;
 			_r->isFunc = True;
+			calcPosition(_r, pCast(node, $1));
+			calcPosition(_r, pCast(node, $4));
 			$$ = _r;
 		}
 	| ID LP error RP{
@@ -450,6 +519,8 @@ Exp : Exp ASSIGNOP Exp {
 			_r->funcName = (char*) malloc(strlen(getLabel($1) + 5));
 			strcpy(_r->funcName, getLabel($1));
 			_r->isFunc = True;
+			calcPosition(_r, pCast(node, $1));
+			calcPosition(_r, pCast(node, $3));
 			$$ = _r;
 		}
 	| Exp LB Exp RB {
@@ -457,6 +528,8 @@ Exp : Exp ASSIGNOP Exp {
 			_r->lExp = $1;
 			_r->rExp = $3;
 			_r->op = EJQ_OP_ARRAY;
+			calcPosition(_r, _r->lExp);
+			calcPosition(_r, pCast(node, $4));
 			$$ = _r;
 		}
 	| Exp LB error RB {
@@ -468,24 +541,29 @@ Exp : Exp ASSIGNOP Exp {
 			_r->funcName = (char*) malloc(strlen(getLabel($3) + 5));
 			_r->op = EJQ_OP_STRUCT;
 			strcpy(_r->funcName, getLabel($3));
+			calcPosition(_r, _r->lExp);
+			calcPosition(_r, pCast(node, $3));
 			$$ = _r;
 		}
 	| ID {
 			dollarNode( Exp );
 			_r->funcName = (char*) malloc(strlen(getLabel($1)) + 5);
 			strcpy(_r->funcName, getLabel($1));
+			calcPosition(_r, pCast(node, $1));
 			$$ = _r;
 		}
 	| INT {
 			dollarNode( Exp );
 			_r->isImm8 = EJQ_IMM8_INT;
 			_r->intVal = atoi(getLabel($1));
+			calcPosition(_r, pCast(node, $1));
 			$$ = _r;
 		}
 	| FLOAT {
 			dollarNode( Exp );
 			_r->isImm8 = EJQ_IMM8_FLOAT;
 			_r->floatVal = atof(getLabel($1));
+			calcPosition(_r, pCast(node, $1));
 			$$ = _r;
 		}
 	;
@@ -493,11 +571,14 @@ Args : Exp COMMA Args {
 			dollarNode( Args );
 			_r->exp = $1;
 			_r->next = $3;
+			calcPosition(_r, _r->exp);
+			calcPosition(_r, _r->next);
 			$$ = _r;
 		}
 	 | Exp {
 			dollarNode( Args );
 			_r->exp = $1;
+			calcPosition(_r, _r->exp);
 			$$ = _r;
 		}
 	 ;

@@ -75,6 +75,7 @@ size_t translate(Specifier, char *baseName)
 	}
 	if (!vari_type)
 	{
+		ce("type %d in line %d:", 17, _->_start_line);
 		ce("unknown type ``%s''", _->typeName);
 		return 1;
 		// 好像很多编译器都是拿int当默认类型
@@ -95,12 +96,14 @@ transdecl(ExtDef)
 		// 函数被定义了
 		if (E_trie_find(_->function->name))
 		{
+			ce("type %d in line %d:", 4, _->_start_line);
 			ce("duplicate identify ``%s'' in current namespace\n", _->function->name);
 			return;
 		}
 		// TODO: 处理包含结构体定义的情况
 		if (!func_type)
 		{
+			ce("type %d in line %d:", 17, _->_start_line);
 			ce("unknown type ``%s''\n", _->spec->typeName);
 			return;
 		}
@@ -133,6 +136,7 @@ transdecl(ExtDef)
 			E_trie_insert(vlist->thisParam->name->varName, func_arg_symbol);
 			if (!E_symbol_table[func_arg_symbol].type_uid)
 			{
+				ce("type %d in line %d:", 17, _->_start_line);
 				ce("unknown type %s\n", vlist->thisParam->type->typeName);
 				return;
 			}
@@ -165,6 +169,7 @@ transdecl(ExtDef)
 			{
 				// 可持久化Trie树
 				// 这是全局变量，所以直接查询当前的版本有没有定义就好了
+				ce("type %d in line %d:", 3, _->_start_line);
 				ce("redeclare of ``%s''", decList->dec->varName);
 				continue;
 			}
@@ -193,6 +198,7 @@ size_t translate(StructSpecifier, char *baseName)
 		// 这是一个结构体的定义
 		if (E_trie_find(name))
 		{
+			ce("type %d in line %d:", 16, _->_start_line);
 			ce("identifier ``%s'' is already used", name);
 		}
 		structId = E_symbol_table_new();
@@ -206,7 +212,10 @@ size_t translate(StructSpecifier, char *baseName)
 			{
 				son_cnt++;
 				if (dec->dec->value)
+				{
+					ce("type %d in line %d:", 15, _->_start_line);
 					ce("default value in struct is not allowed");
+				}
 			}
 		}
 		E_symbol_table[structId].son_cnt = son_cnt;
@@ -232,7 +241,11 @@ size_t translate(StructSpecifier, char *baseName)
 	} else {
 		structId = E_trie_find(name);
 		if (!structId)
+		{
+			ce("type %d in line %d:", 17, _->_start_line);
 			ce("struct ``%s'' is not declared", name);
+			return 1;
+		}
 	}
 	return structId;
 }
@@ -244,6 +257,7 @@ transdecl(Def)
 	{
 		if (E_trie_find(decList->dec->var->varName))
 		{
+			ce("type %d in line %d:", 3, _->_start_line);
 			ce("redeclare of ``%s''", decList->dec->var->varName);
 			continue;
 		}
@@ -348,7 +362,8 @@ transdecl(Stmt)
 		RetType r = transcall(Exp, _->expression, False, true_branch, false_branch);
 		if (r.type != 1)
 		{
-			ce("type of conditional expression is not ``int''");
+			ce("type %d in line %d:", 7, _->_start_line);
+			ce("type of conditional expression is not ``int'' (get ``%s'')", E_symbol_table[r.type].name);
 		}
 		// 肯定有真分支
 		output("LABEL l%d:\n", true_branch);
@@ -392,12 +407,12 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 	debug("op = %d\n", _->op);
 	if (_->isImm8 == EJQ_IMM8_INT)
 	{
-		output("t%d := #%d\n", res, _->intVal);
+		output("t%d := #%d\n", ret.id, _->intVal);
 		ret.type = 1; // int
 		return ret;
 	} else if (_->isImm8 == EJQ_IMM8_FLOAT)
 	{
-		output("t%d := #%.20f\n", res, _->floatVal);
+		output("t%d := #%.20f\n", ret.id, _->floatVal);
 		ret.type = 2; // float
 		return ret;
 	} else if (_->isFunc)
@@ -408,6 +423,7 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 		int func_rettype = E_symbol_table[func_type].type_uid;
 		if (!func_type || E_symbol_table[func_type].is_abstract != EJQ_SYMBOL_FUNCTION)
 		{
+			ce("type %d in line %d:", 11, _->_start_line);
 			ce("function ``%s'' not found", _->funcName);
 			ret.type = 1;
 			return ret;
@@ -418,9 +434,15 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 		int realArgs = 0;
 		foreach(_->args, arg, N(Args)) realArgs++;
 		if (realArgs < needArgs)
+		{
+			ce("type %d in line %d:", 9, _->_start_line);
 			ce("call function ``%s'' with %d arguments, %d needed", _->funcName, realArgs, needArgs);
+		}
 		else if (realArgs > needArgs)
+		{
+			ce("type %d in line %d:", 9, _->_start_line);
 			ce("call function ``%s'' with %d arguments, requires exactly %d", _->funcName, realArgs, needArgs);
+		}
 		if (realArgs != needArgs)
 			warn("behavior is unknown");
 		foreach(_->args, arg, N(Args))
@@ -433,6 +455,7 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 				int son_node_type = E_symbol_table[son_node].type_uid;
 				if (t.type != son_node_type)
 				{
+					ce("type %d in line %d:", 9, _->_start_line);
 					ce("type of argument %d mismatch: requires ``%s'', got ``%s''", needArgs + 1, E_symbol_table[son_node_type].name, E_symbol_table[t.type].name);
 				}
 			}
@@ -454,11 +477,13 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 		int varName = E_trie_find(_->funcName);
 		if (!varName)
 		{
+			ce("type %d in line %d:", 1, _->_start_line);
 			ce("undefined variable ``%s''", _->funcName);
 			return ret;
 		}
 		if (E_symbol_table[varName].is_abstract != EJQ_SYMBOL_NORMAL)
 		{
+			ce("type %d in line %d:", 1, _->_start_line);
 			ce("``%s'' is not a variable", _->funcName);
 			return ret;
 		}
@@ -480,12 +505,14 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 				RetType rightval = transcall(Exp, _->rExp, True, 0, 0);
 				if (leftval.type != rightval.type)
 				{
+					ce("type %d in line %d:", 7, _->_start_line);
 					ce("type mismatch, left val is ``%s'' but right val is ``%s''",
 							E_symbol_table[leftval.type].name,
 							E_symbol_table[rightval.type].name);
 				}
 				if ((leftval.lrtype != EJQ_RET_LVAL) && !(leftval.lrtype & EJQ_RET_PTR))
 				{
+					ce("type %d in line %d:", 6, _->_start_line);
 					ce("result of left hand expression should be left value");
 				}
 				output(
@@ -494,6 +521,7 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 						leftval.id,
 						EJQ_LRTYPE(rightval),
 						rightval.id);
+				ret = leftval;
 				break;
 			}
 			case EJQ_OP_AND:
@@ -637,12 +665,14 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 				}
 				if (leftval.type != rightval.type)
 				{
+					ce("type %d in line %d:", 7, _->_start_line);
 					ce("type mismatch, left val is ``%s'' but right val is ``%s''",
 							E_symbol_table[leftval.type].name,
 							E_symbol_table[rightval.type].name);
 				}
 				if (leftval.type > 2)
 				{
+					ce("type %d in line %d:", 7, _->_start_line);
 					ce("operator %s on ``%s'' and ``%s'' is not defined", op, E_symbol_table[leftval.type].name, E_symbol_table[rightval.type].name);
 				}
 				output(
@@ -662,6 +692,7 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 				RetType leftval = transcall(Exp, _->lExp, True, 0, 0);
 				if (leftval.type > 2)
 				{
+					ce("type %d in line %d:", 7, _->_start_line);
 					ce("operator ``-'' on ``%s'' is not defined", E_symbol_table[leftval.type].name);
 				}
 				output("t%d := #0 - %s%d\n", ret.id, 
@@ -675,12 +706,14 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 				RetType leftval = transcall(Exp, _->lExp, True, 0, 0);
 				if (!(E_symbol_table[leftval.type].is_abstract & EJQ_SYMBOL_ARRAY))
 				{
+					ce("type %d in line %d:", 10, _->_start_line);
 					ce("operator ``[]'' applied to non-array variable");
 					return ret;
 				}
 				RetType rightval = transcall(Exp, _->rExp, True, 0, 0);
 				if (rightval.type != 1)
 				{
+					ce("type %d in line %d:", 12, _->_start_line);
 					ce("expression in ``[]'' returns non-integer value");
 					return ret;
 				}
@@ -693,11 +726,10 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 			}
 			case EJQ_OP_STRUCT:
 			{
-				debug("struct!!!");
 				RetType leftval = transcall(Exp, _->lExp, True, 0, 0);
-				debug("struct!!!");
 				if (!(E_symbol_table[leftval.type].is_abstract & EJQ_SYMBOL_STRUCT))
 				{
+					ce("type %d in line %d:", 13, _->_start_line);
 					ce("operator ``.'' applied to non-struct variable");
 					return ret;
 				}
@@ -707,6 +739,7 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 				int target_val = E_trie_find(buf);
 				if (!target_val)
 				{
+					ce("type %d in line %d:", 14, _->_start_line);
 					ce("unknown field ``%s'' in struct ``%s''", _->funcName, E_symbol_table[leftval.type].name);
 					return ret;
 				}

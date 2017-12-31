@@ -19,9 +19,35 @@
 		memset(ret, 0, sizeof( T_##x ) );\
 		return ret;\
 	}
+#define calcPosition( x , y )\
+	{\
+		if (y) {\
+		if (x->_start_line == 0) {\
+			x->_start_line = y->_start_line, \
+			x->_start_char = y->_start_char, \
+			x->_end_line = y->_end_line,\
+			x->_end_char = y->_end_char;\
+		} else {\
+			if (x->_start_line > y->_start_line) { \
+				x->_start_line = y->_start_line;\
+				x->_start_char = y->_start_char;\
+			} else if (x->_start_line == y->_start_line && x->_start_char > y->_start_char) {\
+				x->_start_char = y->_start_char;\
+			}\
+			if (x->_end_line < y->_end_line) { \
+				x->_end_line = y->_end_line;\
+				x->_end_char = y->_end_char;\
+			} else if (x->_end_line == y->_end_line && x->_end_char < y->_end_char) {\
+				x->_end_char = y->_end_char;\
+			}\
+		}\
+		}\
+	}
 #define pCast( x, y ) ((x *) y)
 
 #define Pj2Type( x ) T_##x
+
+#define POSITION int _start_line, _start_char, _end_line, _end_char
 
 #define foreach( x , y , type) for (type * y = x; y; y = y->next) 
 #define False (0)
@@ -68,17 +94,20 @@ declare_struct(Exp);
 declare_struct(Args);
 
 struct _(Program){
+	POSITION;
 	N(ExtDefList) *programBody;
 };
 initGetNodeFunc(Program);
 
 struct _(ExtDefList) {
+	POSITION;
 	N(ExtDef) *code;
 	N(ExtDefList) *next;
 };
 initGetNodeFunc(ExtDefList);
 
 struct _(ExtDef) {
+	POSITION;
 	N(Specifier) *spec;
 	N(ExtDecList) *dec;
 	N(FunDec) *function;
@@ -87,66 +116,77 @@ struct _(ExtDef) {
 initGetNodeFunc(ExtDef);
 
 struct _(ExtDecList) {
+	POSITION;
 	N(VarDec) *dec;
 	N(ExtDecList) *next;
 };
 initGetNodeFunc(ExtDecList);
 
 struct _(Specifier) {
+	POSITION;
 	char *typeName;
 	N(StructSpecifier) *structName;
 };
 initGetNodeFunc(Specifier);
 
 struct _(StructSpecifier) {
+	POSITION;
 	char *typeName;
 	N(DefList) *structBody;
 };
 initGetNodeFunc(StructSpecifier);
 
 struct _(VarDec) {
+	POSITION;
 	char *varName;
 	N(VarDimList) *dim;
 };
 initGetNodeFunc(VarDec);
 
 struct _(VarDimList) {
+	POSITION;
 	int thisDim;
 	N(VarDimList) *next;
 };
 initGetNodeFunc(VarDimList);
 
 struct _(FunDec) {
+	POSITION;
 	char *name;
 	N(VarList) *varList;
 };
 initGetNodeFunc(FunDec);
 
 struct _(VarList) {
+	POSITION;
 	N(ParamDec) *thisParam;
 	N(VarList) *next;
 };
 initGetNodeFunc(VarList);
 
 struct _(ParamDec) {
+	POSITION;
 	N(Specifier) *type;
 	N(VarDec) *name;
 };
 initGetNodeFunc(ParamDec);
 
 struct _(CompSt) {
+	POSITION;
 	N(DefList) *defList;
 	N(StmtList) *stmtList;
 };
 initGetNodeFunc(CompSt);
 
 struct _(StmtList) {
+	POSITION;
 	N(Stmt) *statement;
 	N(StmtList) *next;
 };
 initGetNodeFunc(StmtList);
 
 struct _(Stmt) {
+	POSITION;
 	N(Exp) *expression;
 	N(CompSt) *compStatement;
 	int isReturn;
@@ -157,30 +197,35 @@ struct _(Stmt) {
 initGetNodeFunc(Stmt);
 
 struct _(DefList) {
+	POSITION;
 	N(Def) *def;
 	N(DefList) *next;
 };
 initGetNodeFunc(DefList);
 
 struct _(Def) {
+	POSITION;
 	N(Specifier) *type;
 	N(DecList) *decList;
 };
 initGetNodeFunc(Def);
 
 struct _(DecList) {
+	POSITION;
 	N(Dec) *dec;
 	N(DecList) *next;
 };
 initGetNodeFunc(DecList);
 
 struct _(Dec) {
+	POSITION;
 	N(VarDec) *var;
 	N(Exp) *value;
 };
 initGetNodeFunc(Dec);
 
 struct _(Exp) {
+	POSITION;
 	N(Exp) *lExp;
 	N(Exp) *rExp;
 	int op;
@@ -196,6 +241,7 @@ struct _(Exp) {
 initGetNodeFunc(Exp);
 
 struct _(Args) {
+	POSITION;
 	N(Exp) *exp;
 	N(Args) *next;
 };

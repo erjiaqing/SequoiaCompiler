@@ -4,7 +4,7 @@
 typedef struct node{
 	char *label;
 	int soncnt;
-	int start_lineno, start_pos, end_lineno, end_pos;
+	int _start_line, _start_char, _end_line, _end_char;
 	struct node** son;
 } node;
 
@@ -35,13 +35,13 @@ node_star _newnode(char *name, int start_lineno, int start_pos, int end_lineno, 
 	ret->soncnt = n;
 	if (start_lineno)
 	{
-		ret->start_lineno = start_lineno;
-		ret->start_pos = start_pos;
-		ret->end_lineno = end_lineno;
-		ret->end_pos = end_pos;
+		ret->_start_line = start_lineno;
+		ret->_start_char = start_pos;
+		ret->_end_line = end_lineno;
+		ret->_end_char = end_pos;
 	} else {
-		ret->start_lineno = ret->start_pos = 0x7fffffff;
-		ret->end_lineno = ret->end_pos = 0;
+		ret->_start_line = ret->_start_char = 0x7fffffff;
+		ret->_end_line = ret->_end_char = 0;
 	}
 	int soncnt = n;
 	if (soncnt)
@@ -52,14 +52,15 @@ node_star _newnode(char *name, int start_lineno, int start_pos, int end_lineno, 
 			ret->son[i] = va_arg(vl, node*);
 			if (ret->son[i])
 			{
+				calcPosition(ret, ret->son[i]);/*
 				if (ret->son[i]->start_lineno == ret->start_lineno && ret->son[i]->start_pos < ret->start_pos)
-					ret->start_pos = ret->son[i]->start_pos;
+					ret->_start_pos = ret->son[i]->start_pos;
 				else if (ret->son[i]->start_lineno < ret->start_lineno)
-					ret->start_pos = ret->son[i]->start_pos, ret->start_lineno = ret->son[i]->start_lineno;
+					ret->_start_pos = ret->son[i]->start_pos, ret->start_lineno = ret->son[i]->start_lineno;
 				if (ret->son[i]->end_lineno == ret->end_lineno && ret->son[i]->end_pos > ret->end_pos)
 					ret->end_pos = ret->son[i]->end_pos;
 				else if (ret->son[i]->end_lineno > ret->end_lineno)
-					ret->end_pos = ret->son[i]->end_pos, ret->end_lineno = ret->son[i]->end_lineno;
+					ret->end_pos = ret->son[i]->end_pos, ret->end_lineno = ret->son[i]->end_lineno;*/
 			}
 		}
 	} else {
