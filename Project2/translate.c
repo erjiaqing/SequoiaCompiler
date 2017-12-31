@@ -37,6 +37,10 @@ transdecl(Args);
 int totTmp;
 int totLab;
 
+int totRange, currentRange; // 作用域全局编号
+
+int currentFunctionReturnType; // 当前函数的返回值类型
+
 ///////////////////////
 
 transdecl(Program)
@@ -144,10 +148,12 @@ transdecl(ExtDef)
 			// 获取参数
 			output("PARAM v%d\n", func_arg_symbol);
 		}
+		currentFunctionReturnType = func_type;
 		// 获取参数表
 		// 假设参数类型全部为int
 		// 翻译函数体
 		transcall(CompSt, _->functionBody);
+		currentFunctionReturnType = 0;
 		// 恢复trie树版本
 		E_trie_back_to_version(current_version);
 		if (func_type == 1)
@@ -203,7 +209,7 @@ size_t translate(StructSpecifier, char *baseName)
 		}
 		structId = E_symbol_table_new();
 		char buf[1024], buf2[1024];
-		sprintf(buf, "%s%s%s", baseName, (baseName && baseName[0]) ? "/" : "", name);
+		sprintf(buf, "%s%s%s", baseName, (baseName && baseName[0]) ? "." : "", name);
 		E_trie_insert(buf, structId);
 		int son_cnt = 0;
 		foreach(_->structBody, def, N(DefList))
@@ -230,11 +236,17 @@ size_t translate(StructSpecifier, char *baseName)
 			// 这里嵌套结构体的方式不是特别清楚，先这样写着
 			foreach(def->def->decList, dec, N(DecList))
 			{
+				sprintf(buf2, "%s.%s", buf, dec->dec->var->varName);
+				int tvar_id = E_trie_find(buf2);
+				if (tvar_id && E_symbol_table[tvar_id].father == currentRange)
+				{
+					ce("type %d in line %d:", 15, _->_start_line);
+					ce("duplicate define of variable ``%s''", buf2);
+				}
 				size_t var_id = transcall(VarDec, dec->dec->var, this_type);
 				E_symbol_table[var_id].offset = E_symbol_table[structId].len;
 				E_symbol_table[structId].len += E_symbol_table[var_id].len;
 				E_symbol_table[structId].son[current_son++] = var_id;
-				sprintf(buf2, "%s/%s", buf, dec->dec->var->varName);
 				E_trie_insert(buf2, var_id);
 			}
 		}
@@ -255,7 +267,8 @@ transdecl(Def)
 	size_t vari_type = transcall(Specifier, _->type, "");
 	foreach ( _->decList, decList, N(DecList))
 	{
-		if (E_trie_find(decList->dec->var->varName))
+		int var_trie_node = E_trie_find(decList->dec->var->varName);
+		if (var_trie_node && E_symbol_table[var_trie_node].father == currentRange)
 		{
 			ce("type %d in line %d:", 3, _->_start_line);
 			ce("redeclare of ``%s''", decList->dec->var->varName);
@@ -287,6 +300,7 @@ transdecl_sizet(VarDec, size_t spec)
 	E_symbol_table[thisid].offset = 0;
 	E_symbol_table[thisid].son_cnt = 0;
 	E_symbol_table[thisid].son = NULL;
+	E_symbol_table[thisid].father = currentRange;
 	//E_trie_insert(_->varName, thisid);
 	return thisid;
 }
@@ -316,6 +330,9 @@ transdecl_sizet(VarDimList, size_t spec)
 
 transdecl(CompSt)
 {
+	int beforeRange = currentRange;
+	currentRange = ++totRange;
+	// 其实也只有这一个会影响到作用域
 	// 声明区
 	foreach(_->defList, def, N(DefList))
 	{
@@ -326,6 +343,7 @@ transdecl(CompSt)
 	{
 		transcall(Stmt, stmt->statement);
 	}
+	currentRange = 0;
 }
 
 transdecl(Stmt)
@@ -337,6 +355,14 @@ transdecl(Stmt)
 		RetType returnTmp = transcall(Exp, _->expression, True, 0, 0);
 		// 需要返回值，没有跳转
 		output("RETURN t%d\n", returnTmp.id);
+		if (currentFunctionReturnType != returnTmp.type)
+		{
+			ce("type %d in line %d:", 8, _->_start_line);
+			ce("return value mismatch, ``%s'' expected, got ``%s''",
+					E_symbol_table[currentFunctionReturnType].name,
+					E_symbol_table[returnTmp.type].name
+				);
+		}
 		// 这是第一句输出的话啊!
 	} else if (_->isWhile)
 	{
@@ -421,10 +447,17 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 		int func_type = E_trie_find(_->funcName);
 		int func_args = E_symbol_table[func_type].son_cnt;
 		int func_rettype = E_symbol_table[func_type].type_uid;
-		if (!func_type || E_symbol_table[func_type].is_abstract != EJQ_SYMBOL_FUNCTION)
+		if (!func_type)
+		{
+			ce("type %d in line %d:", 2, _->_start_line);
+			ce("function ``%s'' not found", _->funcName);
+			ret.type = 1;
+			return ret;
+		}
+		if (E_symbol_table[func_type].is_abstract != EJQ_SYMBOL_FUNCTION)
 		{
 			ce("type %d in line %d:", 11, _->_start_line);
-			ce("function ``%s'' not found", _->funcName);
+			ce("``%s'' is not a function", _->funcName);
 			ret.type = 1;
 			return ret;
 		}
@@ -443,8 +476,8 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 			ce("type %d in line %d:", 9, _->_start_line);
 			ce("call function ``%s'' with %d arguments, requires exactly %d", _->funcName, realArgs, needArgs);
 		}
-		if (realArgs != needArgs)
-			warn("behavior is unknown");
+		//if (realArgs != needArgs)
+		//	warn("behavior is unknown");
 		foreach(_->args, arg, N(Args))
 		{
 			RetType t = transcall(Exp, arg->exp, True, 0, 0);
@@ -734,7 +767,7 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 					return ret;
 				}
 				char buf[1024];
-				sprintf(buf, "%s/%s", E_symbol_table[leftval.type].name, _->funcName);
+				sprintf(buf, "%s.%s", E_symbol_table[leftval.type].name, _->funcName);
 				debug("real access to :%s\n", buf);
 				int target_val = E_trie_find(buf);
 				if (!target_val)

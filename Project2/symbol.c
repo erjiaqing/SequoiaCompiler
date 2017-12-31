@@ -15,6 +15,7 @@ typedef struct E_symbol_item{
 	int type_uid; // 类型UID
 	char *name; // 全名
 	size_t len; // 总长，对于数组，是每一项的长度
+	size_t father; // 父亲节点的编号，实际上就是作用域的编号
 	int is_abstract;
 	// 是否抽象，对于结构体中的变量，我们管它叫抽象变量，需要映射为具体实例+偏移量才能使用
 	// is_abstract还能指这个东西的类别
