@@ -21,6 +21,8 @@
 	}
 #define pCast( x, y ) ((x *) y)
 
+#define Pj2Type( x ) T_##x
+
 #define foreach( x , y , type) for (type * y = x; y; y = y->next) 
 #define False (0)
 #define True (1)

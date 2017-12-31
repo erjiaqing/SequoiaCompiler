@@ -15,8 +15,8 @@ transdecl(Program);
 transdecl(ExtDefList);
 transdecl(ExtDef);
 transdecl(ExtDecList);
-transdecl(Specifier);
-transdecl(StructSpecifier);
+size_t translate(Specifier, char*);
+size_t translate(StructSpecifier, char*); // base name
 transdecl(OptTag);
 transdecl(Tag);
 transdecl_sizet(VarDec, size_t);
@@ -64,6 +64,26 @@ transdecl(Program)
 	output("RETURN #0\n");
 }
 
+size_t translate(Specifier, char *baseName)
+{
+	size_t vari_type = 0;
+	if (_->structName)
+	{
+		vari_type = transcall(StructSpecifier, _->structName, baseName);
+	} else {
+		vari_type = E_trie_find(_->typeName);
+	}
+	if (!vari_type)
+	{
+		ce("unknown type ``%s''", _->typeName);
+		return 1;
+		// 好像很多编译器都是拿int当默认类型
+		// 此处参照这个设定
+		// 应该是C标准里面的
+	}
+	return vari_type;
+}
+
 transdecl(ExtDef)
 {
 	if (_->function) // function
@@ -71,7 +91,7 @@ transdecl(ExtDef)
 		int son_cnt = 0;
 		foreach ( _->function->varList , vlist , N(VarList) ) son_cnt++;
 		// 计算函数参数个数
-		size_t func_type = E_trie_find(_->spec->typeName);
+		size_t func_type = transcall(Specifier, _->spec, "");
 		// 函数被定义了
 		if (E_trie_find(_->function->name))
 		{
@@ -136,13 +156,7 @@ transdecl(ExtDef)
 		output("\n");
 	} else // variables
 	{
-		size_t vari_type = E_trie_find(_->spec->typeName);
-		if (!vari_type)
-		{
-			ce("unknown type ``%s''", _->spec->typeName);
-			return;
-		}
-		// TODO: 处理包含结构体定义的情况
+		size_t vari_type = transcall(Specifier, _->spec, "");
 		// 获取变量类型号
 		foreach ( _->dec, decList, N(ExtDecList) )
 		{
@@ -161,17 +175,73 @@ transdecl(ExtDef)
 			// 如果是数组的话，要记得申请内存
 			int new_type = E_symbol_table[id].type_uid;
 			int isArray = (E_symbol_table[new_type].is_abstract == EJQ_SYMBOL_ARRAY);
-			if (isArray)
+			// 全局变量里面的结构体，也要当作数组来初始化
+			if (isArray || _->spec->structName)
 				E_global_variable_list_append(id);
 		}
 	}
 }
 
+size_t translate(StructSpecifier, char *baseName)
+{
+	// 如果baseName为null，那么这不是在struct里面
+	// 否则就在struct里面
+	char *name = _->typeName;
+	size_t structId = 0;
+	if (_->structBody)
+	{
+		// 这是一个结构体的定义
+		if (E_trie_find(name))
+		{
+			ce("identifier ``%s'' is already used", name);
+		}
+		structId = E_symbol_table_new();
+		char buf[1024], buf2[1024];
+		sprintf(buf, "%s%s%s", baseName, (baseName && baseName[0]) ? "/" : "", name);
+		E_trie_insert(buf, structId);
+		int son_cnt = 0;
+		foreach(_->structBody, def, N(DefList))
+		{
+			foreach(def->def->decList, dec, N(DecList))
+			{
+				son_cnt++;
+				if (dec->dec->value)
+					ce("default value in struct is not allowed");
+			}
+		}
+		E_symbol_table[structId].son_cnt = son_cnt;
+		E_symbol_table[structId].son = (size_t *)malloc(sizeof(size_t) * son_cnt);
+		E_symbol_table[structId].name = (char *)malloc(strlen(buf) + 5);
+		E_symbol_table[structId].is_abstract = EJQ_SYMBOL_STRUCT;
+		strcpy(E_symbol_table[structId].name, buf);
+		int current_son = 0;
+		foreach(_->structBody, def, N(DefList))
+		{
+			size_t this_type = transcall(Specifier, def->def->type, buf);
+			// 这里嵌套结构体的方式不是特别清楚，先这样写着
+			foreach(def->def->decList, dec, N(DecList))
+			{
+				size_t var_id = transcall(VarDec, dec->dec->var, this_type);
+				E_symbol_table[var_id].offset = E_symbol_table[structId].len;
+				E_symbol_table[structId].len += E_symbol_table[var_id].len;
+				E_symbol_table[structId].son[current_son++] = var_id;
+				sprintf(buf2, "%s/%s", buf, dec->dec->var->varName);
+				E_trie_insert(buf2, var_id);
+			}
+		}
+	} else {
+		structId = E_trie_find(name);
+		if (!structId)
+			ce("struct ``%s'' is not declared", name);
+	}
+	return structId;
+}
+
 transdecl(Def)
 {
+	size_t vari_type = transcall(Specifier, _->type, "");
 	foreach ( _->decList, decList, N(DecList))
 	{
-		size_t vari_type = E_trie_find(_->type->typeName);
 		if (E_trie_find(decList->dec->var->varName))
 		{
 			ce("redeclare of ``%s''", decList->dec->var->varName);
@@ -181,10 +251,9 @@ transdecl(Def)
 		// 如果是数组的话，要申请内存
 		int new_type = E_symbol_table[id].type_uid;
 		int isArray = (E_symbol_table[new_type].is_abstract == EJQ_SYMBOL_ARRAY);
-		if (isArray)
+		if (isArray || _->type->structName)
 			output("DEC v%zu [%zu]\n", id, E_symbol_table[id].len);
-
-		//E_trie_insert(decList->dec->var->varName, id);
+		E_trie_insert(decList->dec->var->varName, id);
 	}
 }
 
@@ -204,7 +273,7 @@ transdecl_sizet(VarDec, size_t spec)
 	E_symbol_table[thisid].offset = 0;
 	E_symbol_table[thisid].son_cnt = 0;
 	E_symbol_table[thisid].son = NULL;
-	E_trie_insert(_->varName, thisid);
+	//E_trie_insert(_->varName, thisid);
 	return thisid;
 }
 
@@ -320,6 +389,7 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 	ret.id = res;
 	ret.type = 1;
 	ret.isImm8 = 0;
+	debug("op = %d\n", _->op);
 	if (_->isImm8 == EJQ_IMM8_INT)
 	{
 		output("t%d := #%d\n", res, _->intVal);
@@ -372,10 +442,14 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 		output("t%d := CALL f%d\n", res, func_type);
 		ret.type = func_rettype;
 		return ret;
-	} else if (_->funcName)
+	} else if (_->funcName && !_->lExp)
 	{
 		// 这两个名字是一起的
+		// 如果没有左侧的表达式
 		// 不是函数名就是变量名
+		// 结构体：有funcName, 没有isFunc, 有表达式
+		// 函数：有isFunc
+		// 变量：有funcName, 没有isFunc, 没有表达式
 		debug("find ``%s'' in trie\n", _->funcName);
 		int varName = E_trie_find(_->funcName);
 		if (!varName)
@@ -615,6 +689,30 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 				ret.lrtype = EJQ_RET_RPTR;
 				output("_offset := %s%d * #%zu\n", EJQ_LRTYPE(rightval), rightval.id, E_symbol_table[ret.type].len);
 				output("t%d := %c%d + _offset\n", ret.id, "vt"[(leftval.lrtype >> 1) & 1], leftval.id);
+				break;
+			}
+			case EJQ_OP_STRUCT:
+			{
+				debug("struct!!!");
+				RetType leftval = transcall(Exp, _->lExp, True, 0, 0);
+				debug("struct!!!");
+				if (!(E_symbol_table[leftval.type].is_abstract & EJQ_SYMBOL_STRUCT))
+				{
+					ce("operator ``.'' applied to non-struct variable");
+					return ret;
+				}
+				char buf[1024];
+				sprintf(buf, "%s/%s", E_symbol_table[leftval.type].name, _->funcName);
+				debug("real access to :%s\n", buf);
+				int target_val = E_trie_find(buf);
+				if (!target_val)
+				{
+					ce("unknown field ``%s'' in struct ``%s''", _->funcName, E_symbol_table[leftval.type].name);
+					return ret;
+				}
+				ret.lrtype = EJQ_RET_RPTR;
+				ret.type = E_symbol_table[target_val].type_uid;
+				output("t%d := %c%d + #%zu\n", ret.id, "vt"[(leftval.lrtype >> 1) & 1], leftval.id, E_symbol_table[target_val].offset);
 				break;
 			}
 			default:

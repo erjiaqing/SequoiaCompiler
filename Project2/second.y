@@ -47,6 +47,8 @@ void travel(node_star rt, int lvl)
 		}
 }
 
+int totUnnamedStruct = 0;
+
 %}
 
 // 定义一堆关键字和它们的优先级
@@ -127,7 +129,7 @@ Specifier : TYPE {
 		}
 		  | StructSpecifier {
 			dollarNode( Specifier );
-			_r->typeName = NULL;
+			_r->typeName = pCast(Pj2Type(StructSpecifier), $1)->typeName;
 			_r->structName = $1;
 			$$ = _r;
 		}
@@ -135,6 +137,16 @@ Specifier : TYPE {
 StructSpecifier : STRUCT OptTag LC DefList RC {
 			dollarNode( StructSpecifier );
 			_r->typeName = $2 ? (pCast(node, $2)->label) : NULL;
+			if (_r->typeName == NULL)
+			{
+				// 如果这个结构体没有名字，我们就按序号编一个
+				// 因为关键字里面一定没有#，所以这样一定不会冲突
+				char buf[512];
+				sprintf(buf, "s#%d", ++totUnnamedStruct);
+				_r->typeName = (char *)malloc(strlen(buf) + 5);
+				strcpy(_r->typeName, buf);
+			}
+			_r->structBody = $4;
 			$$ = _r;
 		}
 				| STRUCT OptTag LC error RC {$$ = NULL;}
@@ -454,6 +466,7 @@ Exp : Exp ASSIGNOP Exp {
 			dollarNode( Exp );
 			_r->lExp = $1;
 			_r->funcName = (char*) malloc(strlen(getLabel($3) + 5));
+			_r->op = EJQ_OP_STRUCT;
 			strcpy(_r->funcName, getLabel($3));
 			$$ = _r;
 		}
