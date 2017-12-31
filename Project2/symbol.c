@@ -26,6 +26,8 @@ typedef struct E_symbol_item{
 	// 0x004 数组
 	// 0x008 结构体
 	// 0x010 函数
+	int base_type; // 对于数组，这个是基类型
+	int dim; // 对于数组，这是维数
 	size_t offset; // 对于抽象变量，需要指出它的偏移
 	size_t son_cnt; // 子孙数目，这个是针对结构体的
 	size_t* son; // 子节点，还是针对结构体的

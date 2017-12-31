@@ -49,10 +49,23 @@ transdecl(Program)
 	output("FUNCTION f%d:\n"
 			"READ _tread\n"
 			"RETURN _tread\n\n"
-		   "FUNCTION f%d:\n"
+ 		   "FUNCTION f%d:\n"
 		    "PARAM _twrite\n"
 			"WRITE _twrite\n"
-			"RETURN #1\n\n",
+			"RETURN #1\n\n"
+		   "FUNCTION __memcpy:\n"
+			"PARAM _cpy_t\n"
+			"PARAM _cpy_s\n"
+			"PARAM _cpy_l\n"
+			"_cpyed := #0\n"
+			"LABEL _before:\n"
+			"IF _cpyed == _l GOTO _return\n"
+			"*_cpy_t := *_cpy_s\n"
+			"_cpy_t := _cpy_t + #4\n"
+			"_cpy_s := _cpy_s + #4\n"
+			"_cpyed := _cpyed + #4\n"
+			"GOTO _before\n"
+			"RETURN #0\n\n",
 			E_trie_find("read"),
 			E_trie_find("write"));
 	foreach( _->programBody, extdef, N(ExtDefList))
@@ -335,10 +348,13 @@ transdecl_sizet(VarDimList, size_t spec)
 	if (_->next)
 	{
 		thisdim_id = transcall(VarDimList, _->next, spec);
+		E_symbol_table[thisid].dim = E_symbol_table[thisdim_id].dim + 1;
 		sprintf(buf, "%s[]", E_symbol_table[thisdim_id].name);
 	} else {
+		E_symbol_table[thisid].dim = 1;
 		sprintf(buf, "%s[]", E_symbol_table[spec].name);
 	}
+	E_symbol_table[thisid].base_type = spec;
 	E_symbol_table[thisid].type_uid = thisdim_id;
 	E_symbol_table[thisid].name = (char *)malloc(strlen(buf) + 5);
 	strcpy(E_symbol_table[thisid].name, buf);
@@ -558,25 +574,56 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 			{
 				RetType leftval = transcall(Exp, _->lExp, True, 0, 0);
 				RetType rightval = transcall(Exp, _->rExp, True, 0, 0);
-				if (leftval.type != rightval.type)
+				ret = leftval;
+				if ((leftval.lrtype != EJQ_RET_LVAL) && !(leftval.lrtype & EJQ_RET_PTR))
+				{
+					ce("type %d in line %d:", 6, _->_start_line);
+					ce("result of left hand expression should be left value");
+				}
+				if ((E_symbol_table[leftval.type].is_abstract & EJQ_SYMBOL_ARRAY) &&
+					(E_symbol_table[rightval.type].is_abstract & EJQ_SYMBOL_ARRAY))
+				{
+					// 对于数组
+					if (E_symbol_table[leftval.type].base_type == E_symbol_table[rightval.type].base_type &&
+						E_symbol_table[leftval.type].dim == E_symbol_table[rightval.type].dim)
+					{
+						output("PUSH #%zu\n", E_symbol_table[rightval.type].len);
+						output("PUSH %c%d\n",
+								"vt"[(rightval.lrtype / 2) & 1], rightval.id);
+						output("PUSH %c%d\n",
+								"vt"[(leftval.lrtype / 2) & 1], leftval.id);
+						output("_ := CALL __memcpy");
+						// 对于数组，写了一个类似于memcpy的函数
+					} else {
+						ce("type %d in line %d:", 7, _->_start_line);
+						ce("type mismatch, left val is ``%s'' but right val is ``%s''",
+							E_symbol_table[leftval.type].name,
+							E_symbol_table[rightval.type].name);
+
+					}
+					break;
+				} else if (leftval.type != rightval.type)
 				{
 					ce("type %d in line %d:", 7, _->_start_line);
 					ce("type mismatch, left val is ``%s'' but right val is ``%s''",
 							E_symbol_table[leftval.type].name,
 							E_symbol_table[rightval.type].name);
 				}
-				if ((leftval.lrtype != EJQ_RET_LVAL) && !(leftval.lrtype & EJQ_RET_PTR))
+				if ((E_symbol_table[leftval.type].is_abstract & EJQ_SYMBOL_STRUCT) &&
+					(E_symbol_table[rightval.type].is_abstract & EJQ_SYMBOL_STRUCT))
 				{
-					ce("type %d in line %d:", 6, _->_start_line);
-					ce("result of left hand expression should be left value");
+					output("PUSH #%zu\n", E_symbol_table[rightval.type].len);
+					output("PUSH %c%d\n",
+							"vt"[(rightval.lrtype / 2) & 1], rightval.id);
+					output("PUSH %c%d\n",
+							"vt"[(leftval.lrtype / 2) & 1], leftval.id);
+					output("_ := CALL __memcpy");
 				}
-				output(
-						"%s%d := %s%d\n",
+				output("%s%d := %s%d\n",
 					   	EJQ_LRTYPE(leftval), 
 						leftval.id,
 						EJQ_LRTYPE(rightval),
 						rightval.id);
-				ret = leftval;
 				break;
 			}
 			case EJQ_OP_AND:
