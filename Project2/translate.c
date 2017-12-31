@@ -279,7 +279,29 @@ transdecl(Def)
 		int new_type = E_symbol_table[id].type_uid;
 		int isArray = (E_symbol_table[new_type].is_abstract == EJQ_SYMBOL_ARRAY);
 		if (isArray || _->type->structName)
+		{
 			output("DEC v%zu [%zu]\n", id, E_symbol_table[id].len);
+			if (decList->dec->value)
+			{
+				RetType rightval = transcall(Exp, decList->dec->value, False, 0, 0);
+				ce("type %d in line %d:", 7, decList->dec->_start_line);
+				ce("type mismatch, left val is ``%s'' but right val is ``%s''",
+					E_symbol_table[new_type].name,
+					E_symbol_table[rightval.type].name);
+			}
+		} else if (decList->dec->value)
+		{
+			RetType rightval = transcall(Exp, decList->dec->value, False, 0, 0);
+			if (new_type != rightval.type)
+			{
+				ce("type %d in line %d:", 7, decList->dec->_start_line);
+				ce("type mismatch, left val is ``%s'' but right val is ``%s''",
+				E_symbol_table[new_type].name,
+				E_symbol_table[rightval.type].name);
+			} else {
+				output("v%d := %s%d\n", (int)id, EJQ_LRTYPE(rightval), rightval.id);
+			}
+		}
 		E_trie_insert(decList->dec->var->varName, id);
 	}
 }
@@ -354,7 +376,7 @@ transdecl(Stmt)
 		// TODO: 类型检查
 		RetType returnTmp = transcall(Exp, _->expression, True, 0, 0);
 		// 需要返回值，没有跳转
-		output("RETURN t%d\n", returnTmp.id);
+		output("RETURN %s%d\n", EJQ_LRTYPE(returnTmp), returnTmp.id);
 		if (currentFunctionReturnType != returnTmp.type)
 		{
 			ce("type %d in line %d:", 8, _->_start_line);
@@ -527,7 +549,7 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 			ret.lrtype = EJQ_RET_LVAL;
 		ret.id = varName;
 		// output("t%d := v%d\n", res, varName);
-		return ret;
+		// return ret;
 	} else {
 		// 就是普通的表达式啦
 		switch (_->op)
@@ -559,18 +581,19 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 			}
 			case EJQ_OP_AND:
 			{
-				int falseLabel = ifFalse ? ifFalse : ++totLab;
-				int trueLabel = ifTrue ? ifTrue : ++totLab;
+				int falseLabel = ifFalse;
+				int trueLabel = ifTrue;
 				int B1True = ++totLab;
-				int B1False = falseLabel;
 				RetType lval, rval;
 				if (needReturn)
 				{
 					assert(ifTrue == 0 && ifFalse == 0);
+					trueLabel = ++totLab;
+					falseLabel = ++totLab;
 					// 这里加个断言
 				}
 				lval = transcall(Exp, _->lExp, False, B1True, falseLabel);
-				output("LABEL l%d\n", B1True);
+				output("LABEL l%d:\n", B1True);
 				rval = transcall(Exp, _->rExp, False, trueLabel, falseLabel);
 				// 如果需要返回值，那么一定是在计算的时候，不可能是在if或者while里面
 				// 这样的话，ifTrue和ifFalse就不会给出
@@ -781,6 +804,25 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 				output("t%d := %c%d + #%zu\n", ret.id, "vt"[(leftval.lrtype >> 1) & 1], leftval.id, E_symbol_table[target_val].offset);
 				break;
 			}
+			case EJQ_OP_UNARY_NOT:
+			{
+				RetType leftval = transcall(Exp, _->lExp, needReturn, ifFalse, ifTrue);
+				if (needReturn)
+				{
+					int trueLabel = ++totLab;
+					int falseLabel = ++totLab;
+					output("IF %s%d == #0 GOTO l%d\n",
+						EJQ_LRTYPE(leftval),
+						leftval.id,
+						trueLabel);
+					output("t%d := #0", ret.id);
+					output("GOTO l%d\n", falseLabel);
+					output("LABEL l%d\n", trueLabel);
+					output("t%d := #1", ret.id);
+					output("LABEL l%d\n", falseLabel);
+				}
+				return ret;
+			}
 			default:
 			{
 				error("未实现\n");
@@ -788,7 +830,7 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 			}
 		}
 	}
-	if (ifTrue) output("IF %s%d != #1 GOTO l%d\n",
+	if (ifTrue) output("IF %s%d != #0 GOTO l%d\n",
 						EJQ_LRTYPE(ret),
 						ret.id, ifTrue);
 	if (ifFalse) output("IF %s%d == #0 GOTO l%d\n",

@@ -2,7 +2,7 @@ struct edge{
     int t, v, n;
 }e[100005];
 int te;
-int h[100005], S, T, n;
+int h[100005], S, T, n, m;
 int que[100005], qh, qt;
 int lay[100005];
 
@@ -20,7 +20,13 @@ int add_edge(int s, int t, int v)
 
 int bfs(int S, int T)
 {
-    fill(lay, -1, n);
+	int i = 0;
+	while (i < n)
+	{
+		lay[i] = 0;
+		i = i + 1;
+	}
+//    fill(lay, -1, n);
     que[qh = qt = 0] = S;
     while (qh <= qt)
     {
@@ -33,7 +39,7 @@ int bfs(int S, int T)
             if (e[ed].v && lay[e[ed].t] == -1) {
                 lay[e[ed].t] = lay[u] + 1;
                 qt = qt + 1;
-                que[qt] = edge[e].t;
+                que[qt] = e[ed].t;
             }
             ed = e[ed].n;
         }
@@ -48,7 +54,7 @@ int dinic(int u, int T, int f)
     if (u == T) return f;
     while (p != -1 && f)
     {
-        if (lay[e[p].t] == lay[u] + 1 && (tans = dinic(e[p].t, min(low, e[p].v))))
+        if (lay[e[p].t] == lay[u] + 1 && (tans = dinic(e[p].t, T, min(f, e[p].v))))
         {
             e[p].v = e[p].v - tans;
             e[p / 2 + 1 - (p - p / 2 * 2)].v = e[p / 2 + 1 - (p - p / 2 * 2)].v + tans;
@@ -72,15 +78,21 @@ int max_flow()
 int main()
 {
     int i;
-    fill(h, -1, sizeof(h));
-    read(n);read(m);
+	while (i < 100005)
+	{
+		h[i] = -1;
+		i = i + 1;
+	}
+	n = read();
+	m = read();
     S = 0;
     T = n + 1;
     i = 1;
     while (i <= n)
     {
         int ta, tb;
-        read(ta);read(tb);
+        ta = read();
+		tb = read();
         add_edge(S, i, ta);
         add_edge(i, T, tb);
         i = i + 1;
@@ -89,10 +101,12 @@ int main()
     while (i <= m)
     {
         int ta, tb, tc;
-        read(ta);read(tb);read(tc);
+		ta = read();
+		tb = read();
+		tc = read();
         add_edge(ta, tb, tc);
         add_edge(tb, ta, tc);
     }
-    writeln(max_flow());
+    write(max_flow());
     return 0;
 }

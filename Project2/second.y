@@ -335,6 +335,7 @@ Stmt : Exp SEMI {
 			_r->isReturn = _r->isWhile = False;
 			_r->ifTrue = $5;
 			_r->ifFalse = NULL;
+			_r->isWhile = True;
 			calcPosition(_r, pCast(node, $1));
 			calcPosition(_r, _r->ifTrue);
 			$$ = _r;

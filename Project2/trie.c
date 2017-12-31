@@ -184,7 +184,7 @@ int E_trie_find(char *s)
 int E_trie_insert(char *s, int item_id)
 {
 //	debug("insert to trie: |%s| with item_id = %d\n", s, item_id);
-	if (E_trie_find(s)) return 1;
+//	if (E_trie_find(s)) return 1;
 	return __E_trie_insert(s, item_id);
 }
 
