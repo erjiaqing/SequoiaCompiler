@@ -393,7 +393,9 @@ transdecl(Stmt)
 		// TODO: 类型检查
 		RetType returnTmp = transcall(Exp, _->expression, True, 0, 0);
 		// 需要返回值，没有跳转
-		output("RETURN %s%d\n", EJQ_LRTYPE(returnTmp), returnTmp.id);
+		char buf[30];
+		RetStringify(buf, &returnTmp);
+		output("RETURN %s\n", buf);
 		if (currentFunctionReturnType != returnTmp.type)
 		{
 			ce("type %d in line %d:", 8, _->_start_line);
@@ -734,8 +736,8 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 				rval = transcall(Exp, _->rExp, True, 0, 0);
 				char buf1[30];
 				char buf2[30];
-				RetStringify(buf1, lval);
-				RetStringify(buf2, rval);
+				RetStringify(buf1, &lval);
+				RetStringify(buf2, &rval);
 				output("IF %s %s %s GOTO l%d\n",
 						buf1, op,
 						buf2, trueLabel);
@@ -798,7 +800,7 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 						case EJQ_OP_MINUS:
 							value = leftval.imm8val.i - rightval.imm8val.i;break;
 						case EJQ_OP_STAR:
-							value = leftval.imm8val.i * righival.imm8val.i;break;
+							value = leftval.imm8val.i * rightval.imm8val.i;break;
 						case EJQ_OP_DIV:
 							value = leftval.imm8val.i / rightval.imm8val.i;break;
 					}
@@ -807,7 +809,7 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 						ret.isImm8 = EJQ_IMM8_INT;
 						ret.imm8val.i = value;
 					} else {
-						output("%s%d := #%d\n", EJQ_LRTYPE(ret), value);
+						output("%s%d := #%d\n", EJQ_LRTYPE(ret), ret.id, value);
 					}
 				} else if (leftval.isImm8 == rightval.isImm8 && leftval.isImm8 == EJQ_IMM8_FLOAT)
 				{
@@ -819,7 +821,7 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 						case EJQ_OP_MINUS:
 							value = leftval.imm8val.f - rightval.imm8val.f;break;
 						case EJQ_OP_STAR:
-							value = leftval.imm8val.f * righival.imm8val.f;break;
+							value = leftval.imm8val.f * rightval.imm8val.f;break;
 						case EJQ_OP_DIV:
 							value = leftval.imm8val.f / rightval.imm8val.f;break;
 					}
@@ -828,13 +830,13 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 						ret.isImm8 = EJQ_IMM8_FLOAT;
 						ret.imm8val.i = value;
 					} else {
-						output("%s%d := #%.20f\n", EJQ_LRTYPE(ret), value);
+						output("%s%d := #%.20f\n", EJQ_LRTYPE(ret), ret.id, value);
 					}
 				} else {
 					char buf1[30];
 					char buf2[30];
-					RetStringify(buf1, leftval);
-					RetStringify(buf2, rightval);
+					RetStringify(buf1, &leftval);
+					RetStringify(buf2, &rightval);
 					output("%s%d := %s %s %s\n",
 						EJQ_LRTYPE(ret),
 						ret.id, buf1, op, buf2);
@@ -849,7 +851,7 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 					ce("type %d in line %d:", 7, _->_start_line);
 					ce("operator ``-'' on ``%s'' is not defined", E_symbol_table[leftval.type].name);
 				}
-				RetStringify(buf, leftval);
+				RetStringify(buf, &leftval);
 				output("t%d := #0 - %s\n", ret.id, buf);
 				break;
 			}
@@ -913,7 +915,7 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 				{
 					int trueLabel = ++totLab;
 					int falseLabel = ++totLab;
-					RetStringify(buf, leftval);
+					RetStringify(buf, &leftval);
 					output("IF %s == #0 GOTO l%d\n",
 						buf,
 						trueLabel);
@@ -933,8 +935,8 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 		}
 	}
 	RetStringify(buf, &ret);
-	if (ifTrue) output("IF %s != #0 GOTO l%d\n", buf);
-	if (ifFalse) output("IF %s == #0 GOTO l%d\n", buf);
+	if (ifTrue) output("IF %s != #0 GOTO l%d\n", buf, ifTrue);
+	if (ifFalse) output("IF %s == #0 GOTO l%d\n", buf, ifFalse);
 	return ret;
 }
 
