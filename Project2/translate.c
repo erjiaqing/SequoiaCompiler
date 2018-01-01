@@ -59,12 +59,13 @@ transdecl(Program)
 			"PARAM _cpy_l\n"
 			"_cpyed := #0\n"
 			"LABEL _before:\n"
-			"IF _cpyed == _l GOTO _return\n"
+			"IF _cpyed == _cpy_l GOTO _return\n"
 			"*_cpy_t := *_cpy_s\n"
 			"_cpy_t := _cpy_t + #4\n"
 			"_cpy_s := _cpy_s + #4\n"
 			"_cpyed := _cpyed + #4\n"
 			"GOTO _before\n"
+			"LABEL _return:\n"
 			"RETURN #0\n\n",
 			E_trie_find("read"),
 			E_trie_find("write"));
