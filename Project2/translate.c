@@ -463,6 +463,7 @@ transdecl(Stmt)
 
 RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 {
+	char buf[30];
 	RetType ret;
 	int res = ++totTmp;
 	ret.lrtype = EJQ_RET_RVAL;
@@ -472,14 +473,18 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 	debug("op = %d\n", _->op);
 	if (_->isImm8 == EJQ_IMM8_INT)
 	{
-		output("t%d := #%d\n", ret.id, _->intVal);
+		ret.isImm8 = EJQ_IMM8_INT;
+		ret.imm8val.i = _->intVal;
+//		output("t%d := #%d\n", ret.id, _->intVal);
 		ret.type = 1; // int
-		return ret;
+//		return ret;
 	} else if (_->isImm8 == EJQ_IMM8_FLOAT)
 	{
-		output("t%d := #%.20f\n", ret.id, _->floatVal);
+		ret.isImm8 = EJQ_IMM8_FLOAT;
+		ret.imm8val.i = _->floatVal;
+//		output("t%d := #%.20f\n", ret.id, _->floatVal);
 		ret.type = 2; // float
-		return ret;
+//		return ret;
 	} else if (_->isFunc)
 	{
 		// 检查函数是否存在
@@ -619,12 +624,13 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 					output("PUSH %c%d\n",
 							"vt"[(leftval.lrtype / 2) & 1], leftval.id);
 					output("_ := CALL __memcpy");
+					break;
 				}
-				output("%s%d := %s%d\n",
+				RetStringify(buf, &rightval);
+				output("%s%d := %s\n",
 					   	EJQ_LRTYPE(leftval), 
 						leftval.id,
-						EJQ_LRTYPE(rightval),
-						rightval.id);
+						buf);
 				break;
 			}
 			case EJQ_OP_AND:
@@ -726,11 +732,13 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 				}
 				lval = transcall(Exp, _->lExp, True, 0, 0);
 				rval = transcall(Exp, _->rExp, True, 0, 0);
-				output("IF %s%d %s %s%d GOTO l%d\n",
-						EJQ_LRTYPE(lval),
-						lval.id, op,
-						EJQ_LRTYPE(rval),
-						rval.id, trueLabel);
+				char buf1[30];
+				char buf2[30];
+				RetStringify(buf1, lval);
+				RetStringify(buf2, rval);
+				output("IF %s %s %s GOTO l%d\n",
+						buf1, op,
+						buf2, trueLabel);
 				if (needReturn)
 				{
 					output("t%d := #0", ret.id);
@@ -779,16 +787,58 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 					ce("type %d in line %d:", 7, _->_start_line);
 					ce("operator %s on ``%s'' and ``%s'' is not defined", op, E_symbol_table[leftval.type].name, E_symbol_table[rightval.type].name);
 				}
-				output(
-						"%s%d := %s%d %s %s%d\n",
-						EJQ_LRTYPE(ret),
-						ret.id,
-						EJQ_LRTYPE(leftval),
-						leftval.id,
-						op,
-						EJQ_LRTYPE(rightval),
-						rightval.id);
 				ret.type = leftval.type;
+				if (leftval.isImm8 == rightval.isImm8 && leftval.isImm8 == EJQ_IMM8_INT)
+				{
+					int value = 0;
+					switch(_->op)
+					{
+						case EJQ_OP_PLUS:
+							value = leftval.imm8val.i + rightval.imm8val.i;break;
+						case EJQ_OP_MINUS:
+							value = leftval.imm8val.i - rightval.imm8val.i;break;
+						case EJQ_OP_STAR:
+							value = leftval.imm8val.i * righival.imm8val.i;break;
+						case EJQ_OP_DIV:
+							value = leftval.imm8val.i / rightval.imm8val.i;break;
+					}
+					if (ret.lrtype == 3)
+					{
+						ret.isImm8 = EJQ_IMM8_INT;
+						ret.imm8val.i = value;
+					} else {
+						output("%s%d := #%d\n", EJQ_LRTYPE(ret), value);
+					}
+				} else if (leftval.isImm8 == rightval.isImm8 && leftval.isImm8 == EJQ_IMM8_FLOAT)
+				{
+					float value = 0;
+					switch(_->op)
+					{
+						case EJQ_OP_PLUS:
+							value = leftval.imm8val.f + rightval.imm8val.f;break;
+						case EJQ_OP_MINUS:
+							value = leftval.imm8val.f - rightval.imm8val.f;break;
+						case EJQ_OP_STAR:
+							value = leftval.imm8val.f * righival.imm8val.f;break;
+						case EJQ_OP_DIV:
+							value = leftval.imm8val.f / rightval.imm8val.f;break;
+					}
+					if (ret.lrtype == 3)
+					{
+						ret.isImm8 = EJQ_IMM8_FLOAT;
+						ret.imm8val.i = value;
+					} else {
+						output("%s%d := #%.20f\n", EJQ_LRTYPE(ret), value);
+					}
+				} else {
+					char buf1[30];
+					char buf2[30];
+					RetStringify(buf1, leftval);
+					RetStringify(buf2, rightval);
+					output("%s%d := %s %s %s\n",
+						EJQ_LRTYPE(ret),
+						ret.id, buf1, op, buf2);
+				}
 				break;
 			}
 			case EJQ_OP_UNARY_MINUS:
@@ -799,10 +849,8 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 					ce("type %d in line %d:", 7, _->_start_line);
 					ce("operator ``-'' on ``%s'' is not defined", E_symbol_table[leftval.type].name);
 				}
-				output("t%d := #0 - %s%d\n", ret.id, 
-						EJQ_LRTYPE(leftval),
-						leftval.id
-					  );
+				RetStringify(buf, leftval);
+				output("t%d := #0 - %s\n", ret.id, buf);
 				break;
 			}
 			case EJQ_OP_ARRAY:
@@ -824,8 +872,14 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 				// 如果是数组的话，这里写的就是这一维的类型
 				ret.type = E_symbol_table[leftval.type].type_uid;
 				ret.lrtype = EJQ_RET_RPTR;
-				output("_offset := %s%d * #%zu\n", EJQ_LRTYPE(rightval), rightval.id, E_symbol_table[ret.type].len);
-				output("t%d := %c%d + _offset\n", ret.id, "vt"[(leftval.lrtype >> 1) & 1], leftval.id);
+				if (rightval.isImm8)
+				{
+					int offset = rightval.imm8val.i * E_symbol_table[ret.type].len;
+					output("t%d := %c%d + #%d\n", ret.id, "vt"[(leftval.lrtype >> 1) & 1], leftval.id, offset);
+				} else {
+					output("_offset := %s%d * #%zu\n", EJQ_LRTYPE(rightval), rightval.id, E_symbol_table[ret.type].len);
+					output("t%d := %c%d + _offset\n", ret.id, "vt"[(leftval.lrtype >> 1) & 1], leftval.id);
+				}
 				break;
 			}
 			case EJQ_OP_STRUCT:
@@ -859,9 +913,9 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 				{
 					int trueLabel = ++totLab;
 					int falseLabel = ++totLab;
-					output("IF %s%d == #0 GOTO l%d\n",
-						EJQ_LRTYPE(leftval),
-						leftval.id,
+					RetStringify(buf, leftval);
+					output("IF %s == #0 GOTO l%d\n",
+						buf,
 						trueLabel);
 					output("t%d := #0", ret.id);
 					output("GOTO l%d\n", falseLabel);
@@ -878,12 +932,9 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 			}
 		}
 	}
-	if (ifTrue) output("IF %s%d != #0 GOTO l%d\n",
-						EJQ_LRTYPE(ret),
-						ret.id, ifTrue);
-	if (ifFalse) output("IF %s%d == #0 GOTO l%d\n",
-						EJQ_LRTYPE(ret),
-						ret.id, ifFalse);
+	RetStringify(buf, &ret);
+	if (ifTrue) output("IF %s != #0 GOTO l%d\n", buf);
+	if (ifFalse) output("IF %s == #0 GOTO l%d\n", buf);
 	return ret;
 }
 

@@ -65,6 +65,16 @@ typedef struct __ret_type{
 	int type; // 变量类型，其实主要是针对临时变量，它们不在符号表里面，所以得这样查类型
 } RetType;
 
+void RetStringify(char *buf, const RetType *r)
+{
+	if (r->isImm8 == EJQ_IMM8_INT)
+		sprintf(buf, "#%d", r->imm8val.i);
+	else if (r->isImm8 == EJQ_IMM8_FLOAT)
+		sprintf(buf, "#%.20f", r->imm8val.f);
+	else
+		sprintf(buf, "%s%d", EJQ_LRTYPE((*r)), r->id);
+}
+
 // Extend C grammar
 // make it like C++
 
