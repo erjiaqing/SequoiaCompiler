@@ -1,0 +1,503 @@
+#LyX 2.2 created this file. For more info see http://www.lyx.org/
+\lyxformat 508
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass article
+\begin_preamble
+\usepackage{forest}
+\usepackage[all]{xy}
+\usepackage{minted}
+\usepackage[indentfirst]{xeCJK}
+\usepackage{indentfirst}
+\setlength{\parindent}{2em}
+\XeTeXlinebreaklocale "zh"
+\XeTeXlinebreakskip = 0pt plus 1pt minus 0.1pt
+
+\newcommand\fontnamehei{STHeitiSC-Light}
+\newcommand\fontnamesong{STSongti-SC-Regular}
+\newcommand\fontnamekai{STKaitiSC-Regular}
+\newcommand\fontnamemono{Courier New}
+\newcommand\fontnameroman{Kannada MN}
+
+\setCJKmainfont{\fontnamesong}
+\setCJKsansfont[BoldFont=\fontnamekai]{\fontnamekai}
+\setCJKmonofont{\fontnamemono}
+
+\setminted{
+baselinestretch=1.2,
+fontsize=\footnotesize,
+linenos}
+\end_preamble
+\use_default_options true
+\maintain_unincluded_children false
+\language japanese-cjk
+\language_package default
+\inputencoding utf8-plain
+\fontencoding global
+\font_roman "default" "Source Han Serif SC"
+\font_sans "default" "Source Han Sans SC"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\font_cjk SourceHanSerifSC
+\graphics default
+\default_output_format pdf4
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\spacing single
+\use_hyperref true
+\pdf_bookmarks true
+\pdf_bookmarksnumbered false
+\pdf_bookmarksopen false
+\pdf_bookmarksopenlevel 1
+\pdf_breaklinks false
+\pdf_pdfborder true
+\pdf_colorlinks true
+\pdf_backref false
+\pdf_pdfusetitle true
+\papersize default
+\use_geometry true
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine basic
+\cite_engine_type default
+\biblio_style plain
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 1
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\leftmargin 2.5cm
+\topmargin 2.5cm
+\rightmargin 2.5cm
+\bottommargin 2.5cm
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+编译原理实验二：语义分析与中间代码生成
+\end_layout
+
+\begin_layout Author
+郭松 2015301500205
+\end_layout
+
+\begin_layout Standard
+我基本完成了要求的全部内容。另外，我的代码还支持以下超出假设的内容，由于我是先写中间代码生成，然后逐步加上语义分析的功能，所以有些语义分析的功能会受到中间代码生
+成的制约（这是因为我读Project2的要求的时候读错了，当我注意到这一点的时候，Project2已经快写完了）：
+\end_layout
+
+\begin_layout Enumerate
+支持多维数组，支持结构体，支持结构体套结构体，支持结构体数组，支持结构体套数组套结构体，结构体赋值，但是结构体和数组之间的赋值操作没有经过测试，我相信它在大多数
+情况下是正确的。
+\end_layout
+
+\begin_layout Enumerate
+局部变量可以和全局变量重名，特别的，局部变量显然会掩盖全局变量的作用域。
+\end_layout
+
+\begin_layout Enumerate
+对于有些错误，为了让翻译工作继续完成，我并没有直接退出，这可能会使得代码在后续报出一些其它的错误，这一问题主要出现在和Exp相关的语句上，当出现错误的时候，Ex
+p会返回一个类型为int的临时变量。
+\end_layout
+
+\begin_layout Enumerate
+为了支持继承属性，使用了2 pass而不是1 pass，这有一定的效率问题，但是代码相对而言优雅很多。
+\end_layout
+
+\begin_layout Section
+编译方法和项目结构
+\end_layout
+
+\begin_layout Subsection
+编译方法
+\end_layout
+
+\begin_layout Standard
+与和项目一起的，有一个Makefile文件，进入含有Makefile文件的目录，直接调用make即可，生成的可执行文件叫
+\begin_inset Quotes erd
+\end_inset
+
+ejq_cc
+\begin_inset Quotes erd
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+代码在macOS 10.12.3, GCC 7.2和Ubuntu 17.10, GCC 7.2下编译和测试通过，理论上所有支持c99标准的编译器都能通过编译
+\end_layout
+
+\begin_layout Subsection
+项目结构
+\end_layout
+
+\begin_layout Standard
+project1.h是实验一的部分代码抽取、整理出来的内容
+\end_layout
+
+\begin_layout Standard
+project2.h是实验二的中间代码生成所需要的结构体定义
+\end_layout
+
+\begin_layout Standard
+project2.2.h是用到的一些符号常量的定义
+\end_layout
+
+\begin_layout Standard
+symbol.c是符号表的定义
+\end_layout
+
+\begin_layout Standard
+trie.c是可持久化字典树的定义
+\end_layout
+
+\begin_layout Standard
+translate.c是中间代码生成的核心代码
+\end_layout
+
+\begin_layout Standard
+second.y仍然是项目的主文件
+\end_layout
+
+\begin_layout Section
+翻译
+\end_layout
+
+\begin_layout Standard
+我觉得我的翻译部分没有什么好讲的，如果别的同学做完了的话，我的东西和他们的应该是大同小异的。另外，我有自信别人要是抄我的代码的话，绝对弄不清楚某些细节的实现（比
+如下面的可持久化线段树）。
+\end_layout
+
+\begin_layout Standard
+对于符号表的实现，方法和书上的没有太大区别，特别的，为了实现在符号表中快速地查找代码，我使用了名为“可持久化trie”或者叫“可持久化字典树”的数据结构来实现这
+一功能。在提交的源代码中，可持久化字典树的代码已经写在了
+\begin_inset Quotes erd
+\end_inset
+
+trie.c
+\begin_inset Quotes erd
+\end_inset
+
+这一文件当中。
+\end_layout
+
+\begin_layout Section
+可持久化字典树
+\end_layout
+
+\begin_layout Standard
+一般的编译器中，每个作用域对应一棵新的字典树，当我们需要查询变量的作用域的时候，会从当前的字典树开始查找，如没有查询到，则到父作用域里面查找，以此类推，直到找到
+根作用域。这种实现需要维护多棵字典树，同时在查询的时候也会有些复杂，如需要遍历很多棵字典树，其缺点是在查询的时候效率比较低，其优点是往字典树里面添加节点的效率很
+高。
+\end_layout
+
+\begin_layout Standard
+我的想法是，通过一个统一的方式，把所有作用域里面的变量名统一存储到同一棵字典树里面。这要求我们在字典树的基础上进行改动，以支持下面几种操作：
+\end_layout
+
+\begin_layout Standard
+1.
+ 删除一个作用域里面的所有变量名（相当于在一个作用域结束之后，删除一颗字典树）
+\end_layout
+
+\begin_layout Standard
+2.
+ 查询一个作用域，及其父作用域里面是否有一个变量名
+\end_layout
+
+\begin_layout Standard
+我们考虑把一个作用域画出来，如下图，下面这个作用域可以抽象成右边的树，对右边的树按我们进行翻译的顺序计算出DFS序，得：
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename /Users/ejq/Library/Mobile Documents/com~apple~Preview/Documents/QQ20171226-221512.png
+	width 80text%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+我们发现，同一层级的节点互不相交，子节点被父节点完全包含，这一形式为我们删除一个特定作用域下的所有单词创造了方便——我们删除一个节点，完全不会影响到其它的节点。
+\end_layout
+
+\begin_layout Standard
+接下来，我引入一个被称作版本的概念，事实上，整个“可持久化”字典树，与现有的版本管理非常相似。
+\end_layout
+
+\begin_layout Standard
+当我们进入一个新的作用域的时候，我们记下当前的版本号，并创建当前版本的“快照”（即记下当前版本的树根——在后面，每一个新版本，都有一颗新的树根），当我们要插入一
+个单词的时候，我们创建一个新版本，保留与将插入单词无关的节点不动，并将这个单词经过的路径上的所有节点复制并改写——这也是“可持久化”一词的由来，每一个版本都利用
+了上一个版本中，没有改动的节点，这一技术似乎也被叫做“写时复制”。当我们要从某一个作用域中退出来的时候，只需要简单地将当前的版本号回退至之前创建的快照，如要节约
+内存的使用，只需删除在这个快照之后创建的所有节点——正如前文所说，它们不会影响到与这个作用域无关的作用域。同时，这样也完成了我们前面所要求的两个基本操作。
+\end_layout
+
+\begin_layout Standard
+最后是对这一数据结构效率的分析。相比于建立多棵字典树，这一数据结构在查询的时候只需要一次字典树查询，即可找到我们需要的单词。但相应的，需要耗费一些额外的内存空间
+，同时在插入过程中，也需要更多的时间来进行节点复制的操作。但是，在一般的程序当中，变量被声明或者定义的次数要远少于变量被调用的次数，基于“加速热点过程”的取舍，
+这这样的改变从理论上是可行的（因为没有程序用来计算具体的效率差别）。
+\end_layout
+
+\begin_layout Section
+代码段分析
+\end_layout
+
+\begin_layout Subsection
+插入与创建新版本
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{minted}{cpp}
+\end_layout
+
+\begin_layout Plain Layout
+
+int __E_trie_insert(char *s, int item_id) {
+\end_layout
+
+\begin_layout Plain Layout
+
+    size_t rt = __E_trie_new_version();
+\end_layout
+
+\begin_layout Plain Layout
+
+    for (int i = 0; s[i]; i++) {
+\end_layout
+
+\begin_layout Plain Layout
+
+        if (E_trie_nodes[rt].nxt[s[i]]) {
+\end_layout
+
+\begin_layout Plain Layout
+
+            E_trie_nodes[rt].nxt[s[i]] = __E_trie_fork_node(E_trie_nodes[rt].nxt[s
+[i]]);
+\end_layout
+
+\begin_layout Plain Layout
+
+        } else {
+\end_layout
+
+\begin_layout Plain Layout
+
+            E_trie_nodes[rt].nxt[s[i]] = __E_trie_new_node();
+\end_layout
+
+\begin_layout Plain Layout
+
+        }
+\end_layout
+
+\begin_layout Plain Layout
+
+        rt = E_trie_nodes[rt].nxt[s[i]];
+\end_layout
+
+\begin_layout Plain Layout
+
+    }
+\end_layout
+
+\begin_layout Plain Layout
+
+    E_trie_nodes[rt].flag = item_id;
+\end_layout
+
+\begin_layout Plain Layout
+
+    __E_trie_finalize_new_version();
+\end_layout
+
+\begin_layout Plain Layout
+
+    return 0;
+\end_layout
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{minted}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+将普通的Trie改写成可持久化Trie非常简单，只需要在插入的过程中加入“写时复制”的“复制”部分即可。为了加快效率，我仿照了C++中vector中的实现，同时
+用数组下标模拟指针，相对于直接使用指针，在一定程度上速度会稍快一些，更重要的是这样可以有方便的版本回退（直接丢掉最后若干个元素，而不用逐一delete）。
+\end_layout
+
+\begin_layout Subsection
+查询
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{minted}{cpp}
+\end_layout
+
+\begin_layout Plain Layout
+
+int E_trie_find(char *s) {
+\end_layout
+
+\begin_layout Plain Layout
+
+    if (!E_trie_current_version) return 0;
+\end_layout
+
+\begin_layout Plain Layout
+
+    size_t rt = E_trie_roots[E_trie_get_current_version()];
+\end_layout
+
+\begin_layout Plain Layout
+
+    for (int i = 0; s[i]; i++) {
+\end_layout
+
+\begin_layout Plain Layout
+
+        if (E_trie_nodes[rt].nxt[s[i]])
+\end_layout
+
+\begin_layout Plain Layout
+
+            rt = E_trie_nodes[rt].nxt[s[i]];
+\end_layout
+
+\begin_layout Plain Layout
+
+        else
+\end_layout
+
+\begin_layout Plain Layout
+
+            return 0;
+\end_layout
+
+\begin_layout Plain Layout
+
+    }
+\end_layout
+
+\begin_layout Plain Layout
+
+    return E_trie_nodes[rt].flag;
+\end_layout
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{minted}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+查询操作和一般的trie查询操作完全一样。但却能够查询到父作用域和更上层的作用域的节点。同时也因为每次都新建了一些节点，对于与父作用域里面重名的变量，也能轻松对
+付。
+\end_layout
+
+\begin_layout Section
+总结及致谢
+\end_layout
+
+\begin_layout Standard
+完成这一项目前后用时一个月，净代码量1600行，算是一个有一定难度的实验，在完成这一实验的过程当中，前后翻了很多次书，也修改过很多次语义分析器和中间代码生成的具
+体实现操作。总而言之有很大的收获。
+\end_layout
+
+\begin_layout Standard
+如果我没有阅读过一些代码，那么我可能不可能完成实验的第二部分。其中比较有代表性的项目如下：
+\end_layout
+
+\begin_layout Enumerate
+PostgreSQL数据库管理系统的SQL解析部分，pgsql的代码是用C写成的，这使得一些地方不得不使用一些危险的行为来完成，我借鉴了这些危险的行为，主要体现
+在project2.h这一头文件中，对Project1里的部分内容的重写，以在Project2当中使用可读性更高的代码。
+\end_layout
+
+\begin_layout Enumerate
+因为我平时使用C++比较多，C语言缺少一些好用的特性（比如函数重载）为了让自己写起来更舒服，我从StackOverflow上面搜索了一些代码段，并将其应用到自己
+的代码当中，当然，这些代码与这个项目的内容没有关联。
+\end_layout
+
+\begin_layout Enumerate
+可持久化数据结构和可持久化字典树并不是由我提出的，学术界提出了这些思想，并由算法竞赛的一些前辈们将它们具体化。
+\end_layout
+
+\end_body
+\end_document
