@@ -750,18 +750,30 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 				char buf2[30];
 				RetStringify(buf1, &lval);
 				RetStringify(buf2, &rval);
-				output("IF %s %s %s GOTO l%d\n",
-						buf1, op,
-						buf2, trueLabel);
 				if (needReturn)
 				{
+					output("IF %s %s %s GOTO l%d\n",
+						buf1, op,
+						buf2, trueLabel);
 					output("t%d := #0", ret.id);
 					output("GOTO l%d\n", falseLabel);
 					output("LABEL l%d\n", trueLabel);
 					output("t%d := #1", ret.id);
 					output("LABEL l%d\n", falseLabel);
 				} else {
-					output("GOTO l%d\n", falseLabel);
+					if (ifTrue) {
+						output("IF %s %s %s GOTO l%d\n",
+							buf1, op,
+							buf2, trueLabel);
+						if (ifFalse)
+							output("GOTO l%d\n", falseLabel);
+					} else if (ifFalse){
+						output("IF %s %s %s GOTO l%d\n",
+							buf1, op,
+							buf2, trueLabel);
+						output("GOTO l%d\n", falseLabel);
+						output("LABEL l%d:\n", trueLabel);
+					}
 				}
 				ret.type = 1;
 				return ret;
