@@ -546,7 +546,9 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 					ce("type of argument %d mismatch: requires ``%s'', got ``%s''", needArgs + 1, E_symbol_table[son_node_type].name, E_symbol_table[t.type].name);
 				}
 			}
-			output("PUSH t%d\n", t.id);
+			char buf[30];
+			RetStringify(buf, &t);
+			output("PUSH %s\n", buf);
 		}
 		// 先这样，后面再改成找符号表
 		output("t%d := CALL f%d\n", res, func_type);
@@ -875,8 +877,17 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 					ce("type %d in line %d:", 7, _->_start_line);
 					ce("operator ``-'' on ``%s'' is not defined", E_symbol_table[leftval.type].name);
 				}
-				RetStringify(buf, &leftval);
-				output("t%d := #0 - %s\n", ret.id, buf);
+				if (leftval.isImm8 == EJQ_IMM8_INT)
+				{
+					leftval.imm8val.i = -leftval.imm8val.i;
+					ret = leftval;
+				} else if (leftval.isImm8 == EJQ_IMM8_FLOAT) {
+					leftval.imm8val.f = -leftval.imm8val.f;
+					ret = leftval;
+				} else {
+					RetStringify(buf, &leftval);
+					output("t%d := #0 - %s\n", ret.id, buf);
+				}
 				break;
 			}
 			case EJQ_OP_ARRAY:
