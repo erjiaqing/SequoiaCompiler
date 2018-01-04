@@ -423,7 +423,7 @@ transdecl(Stmt)
 		int false_branch = after_if;
 		if (_->ifFalse)
 		{
-			false_branch = ++totLab;
+			false_branch = 0;
 		}
 		// 注意到如果没有假分支，那么假就跳到if结束
 		RetType r = transcall(Exp, _->expression, False, true_branch, false_branch);
@@ -433,8 +433,15 @@ transdecl(Stmt)
 			ce("type of conditional expression is not ``int'' (get ``%s'')", E_symbol_table[r.type].name);
 		}
 		// 肯定有真分支
+		if (_->ifFalse)
+		{
+			transcall(Stmt, _->ifFalse);
+			output("GOTO l%d\n", after_if);
+		}
 		output("LABEL l%d:\n", true_branch);
 		transcall(Stmt, _->ifTrue);
+		// upd 先翻译假分支，再翻译真分支，节省一次goto
+		/*
 		if (_->ifFalse)
 		{
 			// 处理假分支
@@ -444,6 +451,7 @@ transdecl(Stmt)
 			output("LABEL l%d:\n", false_branch);
 			transcall(Stmt, _->ifFalse);
 		}
+		*/
 		// 最后打出if结束的标号
 		output("LABEL l%d:\n", after_if);
 	} else if (_->compStatement)
@@ -637,8 +645,8 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 			}
 			case EJQ_OP_AND:
 			{
-				int falseLabel = ifFalse;
-				int trueLabel = ifTrue;
+				int falseLabel = ifFalse ? ifFalse : ++totLab;
+				int trueLabel = ifTrue ? ifTrue : ++totLab;
 				int B1True = ++totLab;
 				RetType lval, rval;
 				if (needReturn)
@@ -665,6 +673,8 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 					output("LABEL l%d:\n", afterLabel);
 				}
 				ret.type = 1;
+				if (ifTrue == 0) output("LABEL l%d:\n", trueLabel);
+				if (ifFalse == 0) output("LABEL l%d:\n", falseLabel);
 				// 布尔表达式的返回值一定是int
 				return ret;
 				break;
@@ -694,6 +704,8 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 					output("t%d := #0\n", ret.id);
 					output("LABEL l%d:\n", afterLabel);
 				}
+				if (ifTrue == 0) output("LABEL l%d:\n", trueLabel);
+				if (ifFalse == 0) output("LABEL l%d:\n", falseLabel);
 				ret.type = 1;
 				return ret;
 				break;
@@ -936,7 +948,14 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 	}
 	RetStringify(buf, &ret);
 	if (ifTrue) output("IF %s != #0 GOTO l%d\n", buf, ifTrue);
-	if (ifFalse) output("IF %s == #0 GOTO l%d\n", buf, ifFalse);
+	if (ifFalse)
+	{
+		// upd 如果有真，那么这句一定是假，不用想，直接跳
+		if (ifTrue)
+			output("GOTO l%d\n", ifFalse);
+		else
+			output("IF %s == #0 GOTO l%d\n", buf, ifFalse);
+	}
 	return ret;
 }
 
