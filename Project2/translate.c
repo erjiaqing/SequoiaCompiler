@@ -548,7 +548,7 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 			}
 			char buf[30];
 			RetStringify(buf, &t);
-			output("PUSH %s\n", buf);
+			output("ARG %s\n", buf);
 		}
 		// 先这样，后面再改成找符号表
 		output("t%d := CALL f%d\n", res, func_type);
@@ -605,10 +605,10 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 					if (E_symbol_table[leftval.type].base_type == E_symbol_table[rightval.type].base_type &&
 						E_symbol_table[leftval.type].dim == E_symbol_table[rightval.type].dim)
 					{
-						output("PUSH #%zu\n", E_symbol_table[rightval.type].len);
-						output("PUSH %c%d\n",
+						output("ARG #%zu\n", E_symbol_table[rightval.type].len);
+						output("ARG %c%d\n",
 								"vt"[(rightval.lrtype / 2) & 1], rightval.id);
-						output("PUSH %c%d\n",
+						output("ARG %c%d\n",
 								"vt"[(leftval.lrtype / 2) & 1], leftval.id);
 						output("_ := CALL __memcpy");
 						// 对于数组，写了一个类似于memcpy的函数
@@ -630,10 +630,10 @@ RetType translate(Exp, int needReturn, int ifTrue, int ifFalse)
 				if ((E_symbol_table[leftval.type].is_abstract & EJQ_SYMBOL_STRUCT) &&
 					(E_symbol_table[rightval.type].is_abstract & EJQ_SYMBOL_STRUCT))
 				{
-					output("PUSH #%zu\n", E_symbol_table[rightval.type].len);
-					output("PUSH %c%d\n",
+					output("ARG #%zu\n", E_symbol_table[rightval.type].len);
+					output("ARG %c%d\n",
 							"vt"[(rightval.lrtype / 2) & 1], rightval.id);
-					output("PUSH %c%d\n",
+					output("ARG %c%d\n",
 							"vt"[(leftval.lrtype / 2) & 1], leftval.id);
 					output("_ := CALL __memcpy");
 					break;
