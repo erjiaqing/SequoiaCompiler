@@ -382,7 +382,7 @@ transdecl(CompSt)
 	{
 		transcall(Stmt, stmt->statement);
 	}
-	currentRange = 0;
+	currentRange = beforeRange;
 }
 
 transdecl(Stmt)
